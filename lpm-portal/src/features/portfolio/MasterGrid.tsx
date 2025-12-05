@@ -6,10 +6,11 @@ import {
   ArrowUpAZ, 
   ArrowDownZA, 
   Search, 
-  Check, 
   Filter, 
   ArrowUp, 
-  ArrowDown 
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
@@ -28,7 +29,6 @@ type SortState = {
 
 // --- HELPER FUNCTIONS ---
 
-// Safely access nested properties (e.g., "vendor.name")
 const getValue = (item: Property, path: string) => {
   if (path.includes('.')) {
     const [obj, key] = path.split('.');
@@ -37,7 +37,6 @@ const getValue = (item: Property, path: string) => {
   return (item as any)[path];
 };
 
-// Get unique values for the filter list
 const getUniqueValues = (data: Property[], key: string) => {
   const values = new Set<string>();
   data.forEach(item => {
@@ -55,8 +54,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // Sorting State
   const [sortConfig, setSortConfig] = useState<SortState | null>(null);
 
-  // Filtering State: Record<ColumnKey, ArrayOfSelectedValues>
-  // If a key is missing from this object, it means "Select All" (No filter)
+  // Filtering State
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   
   // Menu State
@@ -65,9 +63,8 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // --- 1. FILTERING ENGINE ---
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      // Check every active filter
       return Object.entries(activeFilters).every(([key, selectedValues]) => {
-        if (selectedValues.length === 0) return true; // Should ideally be deleted, but safe check
+        if (selectedValues.length === 0) return true;
         const itemValue = String(getValue(item, key));
         return selectedValues.includes(itemValue);
       });
@@ -96,14 +93,14 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // Handlers
   const handleSort = (key: SortKey, direction: 'asc' | 'desc') => {
     setSortConfig({ key, direction });
-    setOpenMenuColumn(null); // Close menu after sort
+    setOpenMenuColumn(null);
   };
 
   const applyFilter = (key: string, selectedValues: string[] | null) => {
     setActiveFilters(prev => {
       const next = { ...prev };
       if (selectedValues === null) {
-        delete next[key]; // Remove filter -> "Select All"
+        delete next[key];
       } else {
         next[key] = selectedValues;
       }
@@ -115,8 +112,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
 
   // --- INTERNAL COMPONENT: EXCEL HEADER MENU ---
   const HeaderMenu = ({ columnKey, options, onClose }: { columnKey: string, options: string[], onClose: () => void }) => {
-    // Local state for the checkbox list before "Applying"
-    const initialSelection = activeFilters[columnKey] || options; // Default to all if no filter
+    const initialSelection = activeFilters[columnKey] || options;
     const [selected, setSelected] = useState<string[]>(initialSelection);
     const [search, setSearch] = useState('');
 
@@ -133,10 +129,8 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
 
     const toggleSelectAll = () => {
       if (isAllSelected) {
-        // Deselect currently visible options
         setSelected(selected.filter(s => !filteredOptions.includes(s)));
       } else {
-        // Select all visible options
         const newSelected = new Set([...selected, ...filteredOptions]);
         setSelected(Array.from(newSelected));
       }
@@ -145,7 +139,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     return (
       <div 
         className="absolute top-full left-0 mt-1 w-64 bg-white border border-border rounded-md shadow-lvl3 z-50 text-sm flex flex-col animate-in fade-in zoom-in-95 duration-100"
-        onClick={(e) => e.stopPropagation()} // Prevent click from bubbling to header
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Sort Section */}
         <div className="p-2 border-b border-border space-y-1">
@@ -212,7 +206,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
         {/* Footer Actions */}
         <div className="p-2 border-t border-border flex justify-between bg-white rounded-b-md">
           <button 
-            onClick={() => applyFilter(columnKey, null)} // Clear filter
+            onClick={() => applyFilter(columnKey, null)} 
             className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
           >
             Clear
@@ -243,7 +237,6 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     const isOpen = openMenuColumn === columnKey;
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Click outside to close
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
         if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -266,19 +259,15 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
         <div className="flex items-center justify-between gap-1" ref={menuRef}>
           <span className="truncate">{label}</span>
           
-          {/* Indicators container */}
           <div className="flex items-center">
-            {/* Sort Indicator */}
             {isSorted && (
               sortConfig?.direction === 'asc' 
                 ? <ArrowUp className="w-3 h-3 text-brand mr-1" /> 
                 : <ArrowDown className="w-3 h-3 text-brand mr-1" />
             )}
             
-            {/* Filter Indicator */}
             {isFiltered && <Filter className="w-3 h-3 text-brand fill-brand mr-1" />}
 
-            {/* Menu Trigger (Always visible on hover or active) */}
             <div className={cn(
               "p-0.5 rounded-sm transition-opacity",
               isOpen || isSorted || isFiltered ? "opacity-100" : "opacity-0 group-hover:opacity-100"
@@ -287,7 +276,6 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
             </div>
           </div>
 
-          {/* The Excel Menu */}
           {isOpen && (
             <HeaderMenu 
               columnKey={columnKey} 
@@ -341,7 +329,6 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
         </table>
       </div>
 
-      {/* Pagination Footer */}
       <div className="border-t border-border p-3 bg-white flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <span>Rows per page:</span>
