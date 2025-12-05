@@ -42,7 +42,8 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
   const Divider = () => <div className="h-4 w-[1px] bg-border mx-1" />;
 
   return (
-    <div className="flex items-center bg-slate-50 border border-border rounded-md shadow-sm h-12 px-2 mb-4 w-fit">
+    // Removed 'mb-4' so it fits in the toolbar
+    <div className="flex items-center bg-slate-50 border border-border rounded-md shadow-sm h-12 px-2 w-fit">
       <KPI 
         label="Full Portfolio" 
         value={total} 
