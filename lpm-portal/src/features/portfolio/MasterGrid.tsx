@@ -119,7 +119,6 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     const isFiltered = filterKey ? !!activeFilters[filterKey] : false;
     const filterRef = useRef<HTMLDivElement>(null);
 
-    // Close dropdown on click outside
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
         if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
@@ -131,55 +130,77 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     }, [openFilterColumn, filterKey]);
 
     return (
-      <th className={cn("py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border select-none relative", width)}>
-        <div className="flex items-center gap-2">
+      <th className={cn("py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border select-none relative group", width)}>
+        <div className="flex items-center justify-between gap-2 h-full">
           
-          {/* Label + Sort */}
+          {/* 1. Sortable Label Area */}
           <button 
             onClick={() => sortKey && handleSort(sortKey)}
-            className="flex items-center hover:text-text-primary transition-colors"
+            className="flex items-center hover:text-text-primary transition-colors flex-1 text-left"
           >
             {label}
             {sortKey && (
-              <ArrowUpDown className={cn("w-3 h-3 ml-1 transition-opacity", isSorted ? "opacity-100 text-brand" : "opacity-0 group-hover:opacity-30")} />
+              <ArrowUpDown className={cn(
+                "w-3 h-3 ml-1 transition-opacity", 
+                isSorted ? "opacity-100 text-brand" : "opacity-0 group-hover:opacity-50"
+              )} />
             )}
           </button>
 
-          {/* Filter Trigger */}
+          {/* 2. Distinct Filter Trigger */}
           {filterKey && (
             <div className="relative" ref={filterRef}>
               <button 
                 onClick={(e) => { e.stopPropagation(); setOpenFilterColumn(openFilterColumn === filterKey ? null : filterKey); }}
                 className={cn(
-                  "p-1 rounded-sm transition-colors", 
-                  isFiltered ? "text-brand bg-brand/10" : "text-slate-300 hover:text-slate-500"
+                  "p-1.5 rounded-sm transition-all duration-200 border", 
+                  isFiltered 
+                    ? "bg-brand text-white border-brand shadow-sm"  // Active State (High Vis)
+                    : "bg-transparent text-slate-400 border-transparent hover:bg-slate-200 hover:text-slate-700" // Default State
                 )}
+                title={`Filter by ${label}`}
               >
-                <Filter className="w-3 h-3" />
+                <Filter className="w-3 h-3" strokeWidth={isFiltered ? 3 : 2} />
               </button>
 
               {/* Dropdown Menu */}
               {openFilterColumn === filterKey && (
-                <div className="absolute top-6 left-0 w-48 bg-white border border-border shadow-lvl2 rounded-md z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="p-2 border-b border-border bg-slate-50 flex justify-between items-center">
-                    <span className="text-xs font-semibold text-text-secondary">Filter by {label}</span>
+                <div className="absolute top-8 right-0 w-56 bg-white border border-border shadow-lvl3 rounded-md z-[100] animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+                  
+                  {/* Dropdown Header */}
+                  <div className="p-3 border-b border-border bg-slate-50 flex justify-between items-center rounded-t-md">
+                    <span className="text-xs font-bold text-text-primary">Filter {label}</span>
                     {isFiltered && (
-                      <button onClick={() => toggleFilter(filterKey, null)} className="text-[10px] text-red-500 hover:underline">Clear</button>
+                      <button 
+                        onClick={() => toggleFilter(filterKey, null)} 
+                        className="text-[10px] text-red-600 font-semibold hover:underline"
+                      >
+                        Reset
+                      </button>
                     )}
                   </div>
-                  <div className="max-h-48 overflow-y-auto p-1">
+
+                  {/* Options List */}
+                  <div className="max-h-64 overflow-y-auto p-1 custom-scrollbar">
                     {getUniqueValues(data, filterKey).map(val => (
                       <button
                         key={val}
                         onClick={() => toggleFilter(filterKey, val)}
                         className={cn(
-                          "w-full text-left px-3 py-2 text-xs rounded-sm transition-colors",
-                          activeFilters[filterKey] === val ? "bg-brand text-white font-medium" : "hover:bg-slate-50 text-text-primary"
+                          "w-full text-left px-3 py-2 text-xs rounded-sm transition-colors truncate",
+                          activeFilters[filterKey] === val 
+                            ? "bg-brand/10 text-brand font-bold" 
+                            : "hover:bg-slate-50 text-text-primary"
                         )}
                       >
                         {val}
                       </button>
                     ))}
+                    {getUniqueValues(data, filterKey).length === 0 && (
+                      <div className="p-3 text-center text-xs text-text-secondary italic">
+                        No options found
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
