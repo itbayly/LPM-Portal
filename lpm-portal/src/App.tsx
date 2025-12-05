@@ -62,9 +62,15 @@ function Dashboard() {
         break;
     }
 
-    // Apply HUD Status Filter
+    // B. Then apply the HUD Status Filter (if a tile is clicked)
     if (statusFilter !== 'all') {
-      result = result.filter(p => p.status === statusFilter);
+      if (statusFilter === 'action_required') {
+        // Filter for Critical OR Missing Data OR Warning
+        result = result.filter(p => ['critical', 'missing_data', 'warning'].includes(p.status));
+      } else {
+        // Standard single-status filter (e.g. 'active')
+        result = result.filter(p => p.status === statusFilter);
+      }
     }
 
     return result;
