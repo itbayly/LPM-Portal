@@ -3,25 +3,29 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import type { Property } from '../../dataModel';
-import { cn } from '../../lib/utils'; // Make sure utils is imported
+import { cn } from '../../lib/utils';
 
 interface MasterGridProps {
   onRowClick: (property: Property) => void;
   data?: Property[]; 
 }
 
-type SortConfig = {
-  key: keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
+// FIX: Define the Sort Key specifically so we can reference it
+type SortKey = keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
+
+// FIX: Define the Sort State Object
+type SortState = {
+  key: SortKey;
   direction: 'asc' | 'desc';
-} | null;
+};
 
 export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
-  // Sorting State
-  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  // Sorting State (Can be null)
+  const [sortConfig, setSortConfig] = useState<SortState | null>(null);
 
   // Sorting Logic
   const sortedData = useMemo(() => {
@@ -52,7 +56,8 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = sortedData.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleSort = (key: SortConfig['key']) => {
+  // FIX: Use the specific SortKey type here
+  const handleSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
