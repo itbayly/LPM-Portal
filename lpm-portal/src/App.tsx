@@ -153,8 +153,10 @@ function Dashboard() {
                   {/* Smart View Tabs */}
                   <div className="flex p-1 bg-slate-100 rounded-md border border-slate-200 self-start">
                     <button
-                      onClick={() => setCurrentView('overview')}
-                      setStatusFilter('all');
+                      onClick={() => {
+                        setCurrentView('overview');
+                        setStatusFilter('all'); // <-- ADD THIS to reset tiles
+                      }}
                       className={cn(
                         "px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
                         currentView === 'overview' ? "bg-white text-brand shadow-sm" : "text-text-secondary hover:text-text-primary"
