@@ -46,3 +46,12 @@ export interface Property {
   
   contacts: Contact[];
 }
+
+export type UserRole = 'admin' | 'manager' | 'executive';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  role: UserRole;
+  assignedRegion?: string;
+}
