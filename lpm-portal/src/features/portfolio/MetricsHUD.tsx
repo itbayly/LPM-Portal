@@ -22,7 +22,8 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
       <button
         onClick={() => onFilterChange(filter)}
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all hover:bg-slate-100 border border-transparent",
+          // Added 'whitespace-nowrap' to prevent long labels from breaking the layout
+          "flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all hover:bg-slate-100 border border-transparent whitespace-nowrap",
           isActive ? "bg-white border-border shadow-sm" : "opacity-60 hover:opacity-100"
         )}
       >
@@ -40,13 +41,37 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
 
   return (
     <div className="flex items-center bg-slate-50 border border-border rounded-md shadow-sm h-12 px-2 mb-4 w-fit">
-      <KPI label="Total" value={total} icon={Building2} color="text-brand" filter="all" />
+      <KPI 
+        label="Full Portfolio" 
+        value={total} 
+        icon={Building2} 
+        color="text-brand" 
+        filter="all" 
+      />
       <Divider />
-      <KPI label="Active" value={active} icon={CheckCircle2} color="text-status-active" filter="active" />
+      <KPI 
+        label="On National Agreement" 
+        value={active} 
+        icon={CheckCircle2} 
+        color="text-status-active" 
+        filter="active" 
+      />
       <Divider />
-      <KPI label="Critical" value={critical} icon={AlertCircle} color="text-status-critical" filter="critical" />
+      <KPI 
+        label="Cancellation Notice Due" 
+        value={critical} 
+        icon={AlertCircle} 
+        color="text-status-critical" 
+        filter="critical" 
+      />
       <Divider />
-      <KPI label="Missing" value={missing} icon={Clock} color="text-slate-500" filter="missing_data" />
+      <KPI 
+        label="Missing Data" 
+        value={missing} 
+        icon={Clock} 
+        color="text-slate-500" 
+        filter="missing_data" 
+      />
     </div>
   );
 }
