@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+// CHANGED: Removed 'React'
+import { useState } from 'react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
-import { MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+// CHANGED: Removed 'MoreHorizontal'
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { generateMockProperties } from '../../lib/mockData';
 
