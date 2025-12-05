@@ -1,7 +1,6 @@
-import React from 'react';
 import { Building2, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { Property, FilterType } from '../../dataModel'; // Imported from central data model
+import type { Property, FilterType } from '../../dataModel';
 
 interface MetricsHUDProps {
   properties: Property[];
