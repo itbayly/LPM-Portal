@@ -1,206 +1,146 @@
 import { useState, useMemo } from 'react';
-import { AuthProvider, useAuth } from './features/auth/AuthContext';
-import LoginPage from './features/auth/LoginPage';
-import MasterGrid from './features/portfolio/MasterGrid';
-import PropertyDetail from './features/property/PropertyDetail';
-import MetricsHUD from './features/portfolio/MetricsHUD';
-import IngestionConsole from './features/admin/IngestionConsole';
-import { LayoutDashboard, LogOut, Upload, Search, Calendar, AlertTriangle, Users } from 'lucide-react';
-import { useProperties } from './hooks/useProperties';
-import { cn } from './lib/utils';
-import type { Property, FilterType } from './dataModel';
+import { StatusPill } from '../../components/ui/StatusPill';
+import { StarRating } from '../../components/ui/StarRating';
+import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import type { Property } from '../../dataModel';
+import { cn } from '../../lib/utils';
 
-type SmartView = 'overview' | 'critical' | 'gaps' | 'vendor';
+interface MasterGridProps {
+  onRowClick: (property: Property) => void;
+  data?: Property[]; 
+}
 
-function Dashboard() {
-  const { logout, user } = useAuth();
-  const { properties, loading, error, updateProperty } = useProperties();
+// FIX: Define the Sort Key specifically so we can reference it
+type SortKey = keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
 
-  // UI State
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
-  const [showIngestion, setShowIngestion] = useState(false);
+// FIX: Define the Sort State Object
+type SortState = {
+  key: SortKey;
+  direction: 'asc' | 'desc';
+};
+
+export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
   
-  // Filters & Search
-  const [currentView, setCurrentView] = useState<SmartView>('overview');
-  const [statusFilter, setStatusFilter] = useState<FilterType>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  // Sorting State (Can be null)
+  const [sortConfig, setSortConfig] = useState<SortState | null>(null);
 
-  // 1. Search Algorithm (Indexed Fields: Name, Address, City, Zip, ID, Vendor)
-  const searchResults = useMemo(() => {
-    if (!searchQuery) return properties;
-    const q = searchQuery.toLowerCase();
-    return properties.filter(p => 
-      p.name.toLowerCase().includes(q) ||
-      p.address.toLowerCase().includes(q) ||
-      p.city.toLowerCase().includes(q) ||
-      p.zip.includes(q) || 
-      p.id.toLowerCase().includes(q) ||
-      p.vendor.name.toLowerCase().includes(q)
-    );
-  }, [properties, searchQuery]);
+  // Sorting Logic
+  const sortedData = useMemo(() => {
+    if (!sortConfig) return data;
 
-  // 2. View Logic
-  const viewData = useMemo(() => {
-    let result = searchResults;
+    return [...data].sort((a: any, b: any) => {
+      let aValue = a;
+      let bValue = b;
 
-    switch (currentView) {
-      case 'critical':
-        const sixMonthsFromNow = new Date();
-        sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-        result = searchResults.filter(p => new Date(p.contractEndDate) < sixMonthsFromNow);
-        break;
-      case 'gaps':
-        result = searchResults.filter(p => p.status === 'missing_data');
-        break;
-      case 'vendor':
-        // Note: Main alphabetical sort is now handled by MasterGrid headers, 
-        // but this view could pre-sort or grouping logic in future.
-        result = [...searchResults].sort((a, b) => a.vendor.name.localeCompare(b.vendor.name));
-        break;
-      case 'overview':
-      default:
-        break;
+      // Handle nested paths
+      if (sortConfig.key.includes('.')) {
+        const [obj, key] = sortConfig.key.split('.');
+        aValue = a[obj][key];
+        bValue = b[obj][key];
+      } else {
+        aValue = a[sortConfig.key];
+        bValue = b[sortConfig.key];
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortConfig]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentData = sortedData.slice(startIndex, startIndex + itemsPerPage);
+
+  // FIX: Use the specific SortKey type here
+  const handleSort = (key: SortKey) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
     }
-
-    // Apply HUD Status Filter
-    if (statusFilter !== 'all') {
-      result = result.filter(p => p.status === statusFilter);
-    }
-
-    return result;
-  }, [searchResults, currentView, statusFilter]);
-
-  const handlePropertyUpdate = (id: string, data: Partial<Property>) => {
-    updateProperty(id, data);
-    if (selectedProperty && selectedProperty.id === id) {
-      setSelectedProperty({ ...selectedProperty, ...data } as Property);
-    }
+    setSortConfig({ key, direction });
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-canvas">Loading...</div>;
-  if (error) return <div className="p-xl text-red-600 font-bold">{error}</div>;
-
-  return (
-    <div className="min-h-screen bg-canvas flex flex-col h-screen">
-      
-      {/* Navbar */}
-      <nav className="h-16 bg-surface border-b border-border flex items-center justify-between px-xl shrink-0 z-20">
-        <div className="flex items-center gap-sm cursor-pointer" onClick={() => setSelectedProperty(null)}>
-          <div className="p-1.5 bg-brand/10 rounded-sm">
-             <LayoutDashboard className="h-5 w-5 text-brand" />
-          </div>
-          <span className="font-bold text-text-primary">LPM Command Center</span>
-        </div>
-        <div className="flex items-center gap-md">
-          <span className="text-sm text-text-secondary">{user?.email}</span>
-          <button onClick={() => logout()} className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-brand transition-colors">
-            <LogOut className="w-4 h-4" /> Sign Out
-          </button>
-        </div>
-      </nav>
-
-      <main className="flex-1 p-xl overflow-hidden flex flex-col">
-        {selectedProperty ? (
-          <PropertyDetail 
-            property={selectedProperty} 
-            onBack={() => setSelectedProperty(null)}
-            onUpdate={handlePropertyUpdate}
-          />
-        ) : (
-          <>
-            {/* UNIFIED TOOLBAR: HUD + Actions + Search */}
-            <div className="shrink-0 space-y-4 mb-4">
-              
-              {/* Row 1: Slim KPI Strip */}
-              <MetricsHUD 
-                properties={searchResults} 
-                activeFilter={statusFilter}
-                onFilterChange={setStatusFilter}
-              />
-
-              {/* Row 2: Controls */}
-              <div className="flex justify-between items-end">
-                
-                {/* Left: Tabs + Search */}
-                <div className="flex items-center gap-4">
-                  {/* Search */}
-                  <div className="relative group">
-                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary group-focus-within:text-brand transition-colors" />
-                    <input 
-                      type="text"
-                      placeholder="Search portfolio..."
-                      className="h-9 pl-9 pr-4 w-[240px] bg-white border border-border rounded-sm text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all shadow-sm"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-6 w-[1px] bg-border" />
-
-                  {/* Tabs */}
-                  <div className="flex p-0.5 bg-slate-100 rounded-md border border-slate-200">
-                    {[
-                      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-                      { id: 'critical', label: 'Critical', icon: Calendar },
-                      { id: 'gaps', label: 'Gaps', icon: AlertTriangle },
-                      { id: 'vendor', label: 'Vendors', icon: Users },
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => { setCurrentView(tab.id as SmartView); setStatusFilter('all'); }}
-                        className={cn(
-                          "px-3 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
-                          currentView === tab.id ? "bg-white text-brand shadow-sm" : "text-text-secondary hover:text-text-primary"
-                        )}
-                      >
-                        <tab.icon className="w-3.5 h-3.5" /> {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right: Actions */}
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setShowIngestion(true)}
-                    className="h-9 px-4 bg-white border border-border rounded-sm text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                  >
-                    <Upload className="w-4 h-4 text-text-secondary" />
-                    Import
-                  </button>
-                  <button className="h-9 px-4 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark transition-colors">
-                    + Add Property
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Main Grid */}
-            <div className="flex-1 min-h-0"> 
-              <MasterGrid 
-                data={viewData} 
-                onRowClick={(prop) => setSelectedProperty(prop)} 
-              />
-            </div>
-          </>
-        )}
-      </main>
-
-      {showIngestion && <IngestionConsole onClose={() => setShowIngestion(false)} />}
-    </div>
+  const SortIcon = ({ active }: { active: boolean }) => (
+    <ArrowUpDown className={cn("w-3 h-3 ml-1 transition-opacity", active ? "opacity-100 text-brand" : "opacity-0 group-hover:opacity-30")} />
   );
-}
 
-function AppContent() {
-  const { user } = useAuth();
-  return user ? <Dashboard /> : <LoginPage />;
-}
-
-export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <div className="w-full bg-surface rounded-md shadow-lvl1 border border-border overflow-hidden flex flex-col h-full">
+      <div className="overflow-auto flex-1 relative">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+            <tr>
+              <th onClick={() => handleSort('status')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border w-[120px] cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center">Status <SortIcon active={sortConfig?.key === 'status'} /></div>
+              </th>
+              <th onClick={() => handleSort('name')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border min-w-[180px] cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center">Property Name <SortIcon active={sortConfig?.key === 'name'} /></div>
+              </th>
+              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border min-w-[140px]">Street Address</th>
+              <th onClick={() => handleSort('city')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center">City <SortIcon active={sortConfig?.key === 'city'} /></div>
+              </th>
+              <th onClick={() => handleSort('state')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center">State <SortIcon active={sortConfig?.key === 'state'} /></div>
+              </th>
+              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border">Zip</th>
+              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border text-center">Units</th>
+              <th onClick={() => handleSort('vendor.name')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center">Vendor <SortIcon active={sortConfig?.key === 'vendor.name'} /></div>
+              </th>
+              <th onClick={() => handleSort('vendor.rating')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border w-[120px] cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center">Rating <SortIcon active={sortConfig?.key === 'vendor.rating'} /></div>
+              </th>
+              <th onClick={() => handleSort('vendor.currentPrice')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border text-right cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center justify-end">Price/Mo <SortIcon active={sortConfig?.key === 'vendor.currentPrice'} /></div>
+              </th>
+              <th onClick={() => handleSort('contractEndDate')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border text-right cursor-pointer group hover:bg-slate-100 select-none">
+                <div className="flex items-center justify-end">End Date <SortIcon active={sortConfig?.key === 'contractEndDate'} /></div>
+              </th>
+              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border">Notice Window</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {currentData.map((prop) => (
+              <tr key={prop.id} onClick={() => onRowClick(prop)} className="hover:bg-slate-50 transition-colors duration-150 cursor-pointer h-[56px]">
+                <td className="py-3 px-4"><StatusPill status={prop.status} /></td>
+                <td className="py-3 px-4 text-[13px] font-bold text-text-primary">{prop.name}</td>
+                <td className="py-3 px-4 text-[13px] text-text-secondary">{prop.address}</td>
+                <td className="py-3 px-4 text-[13px] text-text-secondary">{prop.city}</td>
+                <td className="py-3 px-4 text-[13px] text-text-secondary">{prop.state}</td>
+                <td className="py-3 px-4 text-[13px] text-text-secondary font-mono">{prop.zip}</td>
+                <td className="py-3 px-4 text-[13px] text-text-primary text-center">{prop.unitCount}</td>
+                <td className="py-3 px-4 text-[13px] font-medium text-text-primary">{prop.vendor.name}</td>
+                <td className="py-3 px-4"><div className="pointer-events-none scale-75 origin-left"><StarRating value={prop.vendor.rating} readonly /></div></td>
+                <td className="py-3 px-4 text-[13px] font-mono text-text-primary text-right">${prop.vendor.currentPrice.toLocaleString()}</td>
+                <td className="py-3 px-4 text-[13px] text-text-primary text-right tabular-nums">{prop.contractEndDate}</td>
+                <td className="py-3 px-4 text-[13px] text-text-secondary">{prop.cancellationWindow}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="border-t border-border p-3 bg-white flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <span>Rows per page:</span>
+          <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-border rounded px-2 py-1 text-xs font-medium focus:border-brand outline-none">
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span className="ml-4">Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedData.length)} of {sortedData.length}</span>
+        </div>
+        <div className="flex gap-1">
+          <button onClick={() => currentPage > 1 && setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary"><ChevronLeft className="w-5 h-5" /></button>
+          <button onClick={() => currentPage < totalPages && setCurrentPage(p => p + 1)} disabled={currentPage === totalPages} className="p-1 rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary"><ChevronRight className="w-5 h-5" /></button>
+        </div>
+      </div>
+    </div>
   );
 }
