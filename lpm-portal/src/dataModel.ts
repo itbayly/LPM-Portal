@@ -1,7 +1,7 @@
 export type PropertyStatus = 'active' | 'warning' | 'critical' | 'missing_data';
 
-// NEW: Centralized Filter Type
-export type FilterType = 'all' | PropertyStatus;
+// UPDATED: Added 'action_required'
+export type FilterType = 'all' | 'action_required' | PropertyStatus;
 
 export interface Vendor {
   name: string;
