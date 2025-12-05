@@ -25,6 +25,7 @@ function Dashboard() {
   
   // Filters & Search
   const [currentView, setCurrentView] = useState<SmartView>('overview');
+  const [statusFilter, setStatusFilter] = useState<FilterType>('all'); // <-- ADD THIS
   const [searchQuery, setSearchQuery] = useState('');
   const [dynamicFilters, setDynamicFilters] = useState({
     state: '',
@@ -58,28 +59,36 @@ function Dashboard() {
     });
   }, [searchResults, dynamicFilters]);
 
-  // 3. View Logic (The "Smart Tabs")
+  // 3. View Logic (The "Smart Tabs" + HUD Filter)
   const viewData = useMemo(() => {
+    // A. First apply the "Smart View" logic
+    let result = filteredData;
+
     switch (currentView) {
       case 'critical':
-        // Filter: End Date < 6 Months OR Notice Date < 120 Days (Simplified logic)
         const sixMonthsFromNow = new Date();
         sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-        return filteredData.filter(p => new Date(p.contractEndDate) < sixMonthsFromNow);
-      
+        result = filteredData.filter(p => new Date(p.contractEndDate) < sixMonthsFromNow);
+        break;
       case 'gaps':
-        // Filter: Status = Missing Data
-        return filteredData.filter(p => p.status === 'missing_data');
-      
+        result = filteredData.filter(p => p.status === 'missing_data');
+        break;
       case 'vendor':
-        // Sort: Group by Vendor (Alphabetical sort for grid)
-        return [...filteredData].sort((a, b) => a.vendor.name.localeCompare(b.vendor.name));
-      
+        result = [...filteredData].sort((a, b) => a.vendor.name.localeCompare(b.vendor.name));
+        break;
       case 'overview':
       default:
-        return filteredData;
+        // No specific view logic, keep standard list
+        break;
     }
-  }, [filteredData, currentView]);
+
+    // B. Then apply the HUD Status Filter (if a tile is clicked)
+    if (statusFilter !== 'all') {
+      result = result.filter(p => p.status === statusFilter);
+    }
+
+    return result;
+  }, [filteredData, currentView, statusFilter]);
 
 
   // Handlers
@@ -124,9 +133,9 @@ function Dashboard() {
             {/* HUD Metrics (Uses filtered data context) */}
             <div className="shrink-0">
               <MetricsHUD 
-                properties={filteredData} // HUD updates based on Filters/Search
-                activeFilter="all" // Deprecated for View Tabs
-                onFilterChange={() => {}} 
+                properties={filteredData} 
+                activeFilter={statusFilter} // <-- UPDATED
+                onFilterChange={setStatusFilter} // <-- UPDATED
               />
 
               {/* Dynamic Filter Bar */}
@@ -145,6 +154,7 @@ function Dashboard() {
                   <div className="flex p-1 bg-slate-100 rounded-md border border-slate-200 self-start">
                     <button
                       onClick={() => setCurrentView('overview')}
+                      setStatusFilter('all');
                       className={cn(
                         "px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
                         currentView === 'overview' ? "bg-white text-brand shadow-sm" : "text-text-secondary hover:text-text-primary"
