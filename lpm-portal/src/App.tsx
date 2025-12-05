@@ -4,9 +4,7 @@ import LoginPage from './features/auth/LoginPage';
 import MasterGrid from './features/portfolio/MasterGrid';
 import PropertyDetail from './features/property/PropertyDetail';
 import MetricsHUD from './features/portfolio/MetricsHUD';
-import FilterBar from './features/portfolio/FilterBar';
 import IngestionConsole from './features/admin/IngestionConsole';
-// REMOVED: Database
 import { LayoutDashboard, LogOut, Upload, Search, Calendar, AlertTriangle, Users } from 'lucide-react';
 import { useProperties } from './hooks/useProperties';
 import { cn } from './lib/utils';
@@ -16,7 +14,6 @@ type SmartView = 'overview' | 'critical' | 'gaps' | 'vendor';
 
 function Dashboard() {
   const { logout, user } = useAuth();
-  // REMOVED: seedDatabase
   const { properties, loading, error, updateProperty } = useProperties();
 
   // UI State
@@ -25,16 +22,9 @@ function Dashboard() {
   
   // Filters & Search
   const [currentView, setCurrentView] = useState<SmartView>('overview');
-  const [statusFilter, setStatusFilter] = useState<FilterType>('all'); // <-- ADD THIS
+  const [statusFilter, setStatusFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [dynamicFilters, setDynamicFilters] = useState({
-    state: '',
-    city: '',
-    vendor: ''
-  });
 
-  // --- SMART FILTER LOGIC [PRD Section 4] ---
-  
   // 1. Search Algorithm (Indexed Fields: Name, Address, City, Zip, ID, Vendor)
   const searchResults = useMemo(() => {
     if (!searchQuery) return properties;
@@ -44,54 +34,42 @@ function Dashboard() {
       p.address.toLowerCase().includes(q) ||
       p.city.toLowerCase().includes(q) ||
       p.zip.includes(q) || 
-      p.id.toLowerCase().includes(q) || // Added ID Search
+      p.id.toLowerCase().includes(q) ||
       p.vendor.name.toLowerCase().includes(q)
     );
   }, [properties, searchQuery]);
 
-  // 2. Drill-Down Filters (State > City > Vendor)
-  const filteredData = useMemo(() => {
-    return searchResults.filter(p => {
-      if (dynamicFilters.state && p.state !== dynamicFilters.state) return false;
-      if (dynamicFilters.city && p.city !== dynamicFilters.city) return false;
-      if (dynamicFilters.vendor && p.vendor.name !== dynamicFilters.vendor) return false;
-      return true;
-    });
-  }, [searchResults, dynamicFilters]);
-
-  // 3. View Logic (The "Smart Tabs" + HUD Filter)
+  // 2. View Logic
   const viewData = useMemo(() => {
-    // A. First apply the "Smart View" logic
-    let result = filteredData;
+    let result = searchResults;
 
     switch (currentView) {
       case 'critical':
         const sixMonthsFromNow = new Date();
         sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-        result = filteredData.filter(p => new Date(p.contractEndDate) < sixMonthsFromNow);
+        result = searchResults.filter(p => new Date(p.contractEndDate) < sixMonthsFromNow);
         break;
       case 'gaps':
-        result = filteredData.filter(p => p.status === 'missing_data');
+        result = searchResults.filter(p => p.status === 'missing_data');
         break;
       case 'vendor':
-        result = [...filteredData].sort((a, b) => a.vendor.name.localeCompare(b.vendor.name));
+        // Note: Main alphabetical sort is now handled by MasterGrid headers, 
+        // but this view could pre-sort or grouping logic in future.
+        result = [...searchResults].sort((a, b) => a.vendor.name.localeCompare(b.vendor.name));
         break;
       case 'overview':
       default:
-        // No specific view logic, keep standard list
         break;
     }
 
-    // B. Then apply the HUD Status Filter (if a tile is clicked)
+    // Apply HUD Status Filter
     if (statusFilter !== 'all') {
       result = result.filter(p => p.status === statusFilter);
     }
 
     return result;
-  }, [filteredData, currentView, statusFilter]);
+  }, [searchResults, currentView, statusFilter]);
 
-
-  // Handlers
   const handlePropertyUpdate = (id: string, data: Partial<Property>) => {
     updateProperty(id, data);
     if (selectedProperty && selectedProperty.id === id) {
@@ -130,91 +108,68 @@ function Dashboard() {
           />
         ) : (
           <>
-            {/* HUD Metrics (Uses filtered data context) */}
-            <div className="shrink-0">
+            {/* UNIFIED TOOLBAR: HUD + Actions + Search */}
+            <div className="shrink-0 space-y-4 mb-4">
+              
+              {/* Row 1: Slim KPI Strip */}
               <MetricsHUD 
-                properties={filteredData} 
-                activeFilter={statusFilter} // <-- UPDATED
-                onFilterChange={setStatusFilter} // <-- UPDATED
+                properties={searchResults} 
+                activeFilter={statusFilter}
+                onFilterChange={setStatusFilter}
               />
 
-              {/* Dynamic Filter Bar */}
-              <FilterBar 
-                properties={properties} // Pass full list to derive options
-                filters={dynamicFilters}
-                onFilterChange={(k, v) => setDynamicFilters(prev => ({ ...prev, [k]: v }))}
-                onClear={() => setDynamicFilters({ state: '', city: '', vendor: '' })}
-              />
-
-              {/* View Tabs & Search Row */}
-              <div className="flex justify-between items-end mb-lg">
-                <div className="flex flex-col gap-md">
-                  
-                  {/* Smart View Tabs */}
-                  <div className="flex p-1 bg-slate-100 rounded-md border border-slate-200 self-start">
-                    <button
-                      onClick={() => {
-                        setCurrentView('overview');
-                        setStatusFilter('all'); // <-- ADD THIS to reset tiles
-                      }}
-                      className={cn(
-                        "px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
-                        currentView === 'overview' ? "bg-white text-brand shadow-sm" : "text-text-secondary hover:text-text-primary"
-                      )}
-                    >
-                      <LayoutDashboard className="w-3.5 h-3.5" /> Portfolio Overview
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('critical')}
-                      className={cn(
-                        "px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
-                        currentView === 'critical' ? "bg-white text-status-critical shadow-sm" : "text-text-secondary hover:text-text-primary"
-                      )}
-                    >
-                      <Calendar className="w-3.5 h-3.5" /> Critical Dates
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('gaps')}
-                      className={cn(
-                        "px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
-                        currentView === 'gaps' ? "bg-white text-orange-600 shadow-sm" : "text-text-secondary hover:text-text-primary"
-                      )}
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5" /> Data Gaps
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('vendor')}
-                      className={cn(
-                        "px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
-                        currentView === 'vendor' ? "bg-white text-blue-600 shadow-sm" : "text-text-secondary hover:text-text-primary"
-                      )}
-                    >
-                      <Users className="w-3.5 h-3.5" /> Vendor Exposure
-                    </button>
-                  </div>
-
-                  {/* Search Bar */}
+              {/* Row 2: Controls */}
+              <div className="flex justify-between items-end">
+                
+                {/* Left: Tabs + Search */}
+                <div className="flex items-center gap-4">
+                  {/* Search */}
                   <div className="relative group">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary group-focus-within:text-brand transition-colors" />
                     <input 
                       type="text"
-                      placeholder="Search ID, Name, City, or Vendor..."
-                      className="h-10 pl-9 pr-4 w-[380px] bg-white border border-border rounded-sm text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all shadow-sm"
+                      placeholder="Search portfolio..."
+                      className="h-9 pl-9 pr-4 w-[240px] bg-white border border-border rounded-sm text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all shadow-sm"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
+
+                  {/* Divider */}
+                  <div className="h-6 w-[1px] bg-border" />
+
+                  {/* Tabs */}
+                  <div className="flex p-0.5 bg-slate-100 rounded-md border border-slate-200">
+                    {[
+                      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+                      { id: 'critical', label: 'Critical', icon: Calendar },
+                      { id: 'gaps', label: 'Gaps', icon: AlertTriangle },
+                      { id: 'vendor', label: 'Vendors', icon: Users },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => { setCurrentView(tab.id as SmartView); setStatusFilter('all'); }}
+                        className={cn(
+                          "px-3 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
+                          currentView === tab.id ? "bg-white text-brand shadow-sm" : "text-text-secondary hover:text-text-primary"
+                        )}
+                      >
+                        <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex gap-sm">
+                {/* Right: Actions */}
+                <div className="flex gap-2">
                   <button 
                     onClick={() => setShowIngestion(true)}
-                    className="px-4 py-2 bg-white border border-border rounded-sm text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2"
+                    className="h-9 px-4 bg-white border border-border rounded-sm text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors"
                   >
                     <Upload className="w-4 h-4 text-text-secondary" />
-                    Import Data
+                    Import
                   </button>
-                  <button className="px-4 py-2 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark">
+                  <button className="h-9 px-4 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark transition-colors">
                     + Add Property
                   </button>
                 </div>
