@@ -7,7 +7,7 @@
 @layer base {
   body {
     @apply bg-canvas text-text-primary font-sans antialiased;
-    /* "Tabular Lining" for data tables [cite: 123] */
+    /* "Tabular Lining" for data tables */
     font-feature-settings: "tnum"; 
     font-variant-numeric: tabular-nums;
   }
@@ -22,8 +22,10 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
+  /* CHANGED: Made scrollbar lighter (slate-200) to blend in */
+  @apply bg-slate-200 rounded-full border-2 border-transparent bg-clip-padding;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400;
+  /* CHANGED: Made hover state slightly darker (slate-300) for visibility */
+  @apply bg-slate-300;
 }
