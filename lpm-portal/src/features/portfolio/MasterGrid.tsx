@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
-import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpDown, Filter, X } from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
 
@@ -10,13 +10,27 @@ interface MasterGridProps {
   data?: Property[]; 
 }
 
-// FIX: Define the Sort Key specifically so we can reference it
 type SortKey = keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
 
-// FIX: Define the Sort State Object
 type SortState = {
   key: SortKey;
   direction: 'asc' | 'desc';
+};
+
+// Helper to get unique values for a column
+const getUniqueValues = (data: Property[], key: string) => {
+  const values = new Set<string>();
+  data.forEach(item => {
+    let val: any = item;
+    if (key.includes('.')) {
+      const [obj, k] = key.split('.');
+      val = val[obj][k];
+    } else {
+      val = val[key as keyof Property];
+    }
+    if (val) values.add(String(val));
+  });
+  return Array.from(values).sort();
 };
 
 export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
@@ -24,20 +38,42 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
-  // Sorting State (Can be null)
+  // Sorting State
   const [sortConfig, setSortConfig] = useState<SortState | null>(null);
 
-  // Sorting Logic
-  const sortedData = useMemo(() => {
-    if (!sortConfig) return data;
+  // Filtering State: { city: "Chicago", state: "NY" }
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [openFilterColumn, setOpenFilterColumn] = useState<string | null>(null);
 
-    return [...data].sort((a: any, b: any) => {
+  // 1. FILTERING LOGIC
+  const filteredData = useMemo(() => {
+    return data.filter(item => {
+      return Object.entries(activeFilters).every(([key, filterValue]) => {
+        if (!filterValue) return true;
+        
+        let itemValue: any = item;
+        if (key.includes('.')) {
+          const [obj, k] = key.split('.');
+          itemValue = itemValue[obj][k];
+        } else {
+          itemValue = itemValue[key as keyof Property];
+        }
+        
+        return String(itemValue) === filterValue;
+      });
+    });
+  }, [data, activeFilters]);
+
+  // 2. SORTING LOGIC (Applied to filtered data)
+  const sortedData = useMemo(() => {
+    if (!sortConfig) return filteredData;
+
+    return [...filteredData].sort((a: any, b: any) => {
       let aValue = a;
       let bValue = b;
 
-      // Handle nested paths
-      if (sortConfig.key.includes('.')) {
-        const [obj, key] = sortConfig.key.split('.');
+      if (String(sortConfig.key).includes('.')) {
+        const [obj, key] = (sortConfig.key as string).split('.');
         aValue = a[obj][key];
         bValue = b[obj][key];
       } else {
@@ -49,14 +85,14 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [data, sortConfig]);
+  }, [filteredData, sortConfig]);
 
-  // Pagination Logic
+  // 3. PAGINATION LOGIC
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = sortedData.slice(startIndex, startIndex + itemsPerPage);
 
-  // FIX: Use the specific SortKey type here
+  // Handlers
   const handleSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -65,44 +101,113 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     setSortConfig({ key, direction });
   };
 
-  const SortIcon = ({ active }: { active: boolean }) => (
-    <ArrowUpDown className={cn("w-3 h-3 ml-1 transition-opacity", active ? "opacity-100 text-brand" : "opacity-0 group-hover:opacity-30")} />
-  );
+  const toggleFilter = (columnKey: string, value: string | null) => {
+    setActiveFilters(prev => {
+      const next = { ...prev };
+      if (value) next[columnKey] = value;
+      else delete next[columnKey];
+      return next;
+    });
+    setOpenFilterColumn(null); // Close dropdown
+    setCurrentPage(1); // Reset to page 1
+  };
+
+  // --- UI COMPONENTS ---
+
+  const HeaderCell = ({ label, sortKey, filterKey, width }: { label: string, sortKey?: SortKey, filterKey?: string, width?: string }) => {
+    const isSorted = sortConfig?.key === sortKey;
+    const isFiltered = filterKey ? !!activeFilters[filterKey] : false;
+    const filterRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+          if (openFilterColumn === filterKey) setOpenFilterColumn(null);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [openFilterColumn, filterKey]);
+
+    return (
+      <th className={cn("py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border select-none relative", width)}>
+        <div className="flex items-center gap-2">
+          
+          {/* Label + Sort */}
+          <button 
+            onClick={() => sortKey && handleSort(sortKey)}
+            className="flex items-center hover:text-text-primary transition-colors"
+          >
+            {label}
+            {sortKey && (
+              <ArrowUpDown className={cn("w-3 h-3 ml-1 transition-opacity", isSorted ? "opacity-100 text-brand" : "opacity-0 group-hover:opacity-30")} />
+            )}
+          </button>
+
+          {/* Filter Trigger */}
+          {filterKey && (
+            <div className="relative" ref={filterRef}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setOpenFilterColumn(openFilterColumn === filterKey ? null : filterKey); }}
+                className={cn(
+                  "p-1 rounded-sm transition-colors", 
+                  isFiltered ? "text-brand bg-brand/10" : "text-slate-300 hover:text-slate-500"
+                )}
+              >
+                <Filter className="w-3 h-3" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {openFilterColumn === filterKey && (
+                <div className="absolute top-6 left-0 w-48 bg-white border border-border shadow-lvl2 rounded-md z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="p-2 border-b border-border bg-slate-50 flex justify-between items-center">
+                    <span className="text-xs font-semibold text-text-secondary">Filter by {label}</span>
+                    {isFiltered && (
+                      <button onClick={() => toggleFilter(filterKey, null)} className="text-[10px] text-red-500 hover:underline">Clear</button>
+                    )}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto p-1">
+                    {getUniqueValues(data, filterKey).map(val => (
+                      <button
+                        key={val}
+                        onClick={() => toggleFilter(filterKey, val)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-xs rounded-sm transition-colors",
+                          activeFilters[filterKey] === val ? "bg-brand text-white font-medium" : "hover:bg-slate-50 text-text-primary"
+                        )}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="w-full bg-surface rounded-md shadow-lvl1 border border-border overflow-hidden flex flex-col h-full">
-      <div className="overflow-auto flex-1 relative">
+      <div className="overflow-auto flex-1 relative min-h-[400px]">
         <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+          <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm group">
             <tr>
-              <th onClick={() => handleSort('status')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border w-[120px] cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center">Status <SortIcon active={sortConfig?.key === 'status'} /></div>
-              </th>
-              <th onClick={() => handleSort('name')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border min-w-[180px] cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center">Property Name <SortIcon active={sortConfig?.key === 'name'} /></div>
-              </th>
-              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border min-w-[140px]">Street Address</th>
-              <th onClick={() => handleSort('city')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center">City <SortIcon active={sortConfig?.key === 'city'} /></div>
-              </th>
-              <th onClick={() => handleSort('state')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center">State <SortIcon active={sortConfig?.key === 'state'} /></div>
-              </th>
-              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border">Zip</th>
-              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border text-center">Units</th>
-              <th onClick={() => handleSort('vendor.name')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center">Vendor <SortIcon active={sortConfig?.key === 'vendor.name'} /></div>
-              </th>
-              <th onClick={() => handleSort('vendor.rating')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border w-[120px] cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center">Rating <SortIcon active={sortConfig?.key === 'vendor.rating'} /></div>
-              </th>
-              <th onClick={() => handleSort('vendor.currentPrice')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border text-right cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center justify-end">Price/Mo <SortIcon active={sortConfig?.key === 'vendor.currentPrice'} /></div>
-              </th>
-              <th onClick={() => handleSort('contractEndDate')} className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border text-right cursor-pointer group hover:bg-slate-100 select-none">
-                <div className="flex items-center justify-end">End Date <SortIcon active={sortConfig?.key === 'contractEndDate'} /></div>
-              </th>
-              <th className="py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border">Notice Window</th>
+              <HeaderCell label="Status" sortKey="status" filterKey="status" width="w-[120px]" />
+              <HeaderCell label="Property Name" sortKey="name" width="min-w-[180px]" />
+              <HeaderCell label="Address" width="min-w-[140px]" />
+              <HeaderCell label="City" sortKey="city" filterKey="city" />
+              <HeaderCell label="State" sortKey="state" filterKey="state" />
+              <HeaderCell label="Zip" filterKey="zip" />
+              <HeaderCell label="Units" />
+              <HeaderCell label="Vendor" sortKey="vendor.name" filterKey="vendor.name" />
+              <HeaderCell label="Rating" sortKey="vendor.rating" width="w-[120px]" />
+              <HeaderCell label="Price/Mo" sortKey="vendor.currentPrice" />
+              <HeaderCell label="End Date" sortKey="contractEndDate" />
+              <HeaderCell label="Notice" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
