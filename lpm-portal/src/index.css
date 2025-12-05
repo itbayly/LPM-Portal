@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-canvas text-text-primary font-sans antialiased;
+    /* "Tabular Lining" for data tables [cite: 123] */
+    font-feature-settings: "tnum"; 
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Scrollbar polish for internal tables */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
