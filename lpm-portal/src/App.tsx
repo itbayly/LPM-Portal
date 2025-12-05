@@ -6,17 +6,18 @@ import PropertyDetail from './features/property/PropertyDetail';
 import MetricsHUD from './features/portfolio/MetricsHUD';
 import FilterBar from './features/portfolio/FilterBar';
 import IngestionConsole from './features/admin/IngestionConsole';
-import { LayoutDashboard, LogOut, Upload, Search, Database, Calendar, AlertTriangle, Users } from 'lucide-react';
+// REMOVED: Database
+import { LayoutDashboard, LogOut, Upload, Search, Calendar, AlertTriangle, Users } from 'lucide-react';
 import { useProperties } from './hooks/useProperties';
-import { cn } from './lib/utils'; // Ensure this is imported
+import { cn } from './lib/utils';
 import type { Property } from './dataModel';
 
-// PRD Section 4: Smart View Types
 type SmartView = 'overview' | 'critical' | 'gaps' | 'vendor';
 
 function Dashboard() {
   const { logout, user } = useAuth();
-  const { properties, loading, error, updateProperty, seedDatabase } = useProperties();
+  // REMOVED: seedDatabase
+  const { properties, loading, error, updateProperty } = useProperties();
 
   // UI State
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
