@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
-import type { PropertyStatus } from '../../dataModel'; // Note the "type" keyword
+import type { PropertyStatus } from '../../dataModel';
 
 interface StatusPillProps {
   status: PropertyStatus;
@@ -11,14 +11,14 @@ export const StatusPill: React.FC<StatusPillProps> = ({ status }) => {
   const getStyle = (s: PropertyStatus) => {
     switch (s) {
       case 'active':
-        return "bg-status-activeBg text-status-activeSx border-green-200";
+        return "bg-status-activeBg text-status-active border-green-200";
       case 'warning':
         return "bg-status-warningBg text-status-warning border-blue-200";
       case 'critical':
-        return "bg-status-criticalBg text-status-criticalSx border-red-200";
+        return "bg-status-criticalBg text-status-critical border-red-200";
       case 'missing_data':
       default:
-        return "bg-gray-100 text-gray-500Sx border-gray-200";
+        return "bg-gray-100 text-gray-500 border-gray-200";
     }
   };
 
@@ -34,11 +34,11 @@ export const StatusPill: React.FC<StatusPillProps> = ({ status }) => {
 
   return (
     <span className={cn(
-      "inline-flex items-center px-3 py-1 rounded-full text-xs font-boldSx border",
+      "inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap", // Added whitespace-nowrap
       getStyle(status)
     )}>
       <span className={cn(
-        "w-2 h-2 rounded-full mr-2",
+        "w-2 h-2 rounded-full mr-2 shrink-0", // Added shrink-0 to protect the dot
         status === 'active' && "bg-status-active",
         status === 'warning' && "bg-status-warning",
         status === 'critical' && "bg-status-critical",
