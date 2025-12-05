@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
-import { ChevronLeft, ChevronRight, ArrowUpDown, Filter, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpDown, Filter } from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
 
