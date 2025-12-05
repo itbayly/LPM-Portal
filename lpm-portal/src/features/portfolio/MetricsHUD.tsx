@@ -9,72 +9,44 @@ interface MetricsHUDProps {
 }
 
 export default function MetricsHUD({ properties, activeFilter, onFilterChange }: MetricsHUDProps) {
-  // 1. Calculate Live Metrics
-  const totalSites = properties.length;
+  // Calculate Counts
+  const total = properties.length;
   const critical = properties.filter(p => p.status === 'critical').length;
   const active = properties.filter(p => p.status === 'active').length;
-  const missingData = properties.filter(p => p.status === 'missing_data').length;
+  const missing = properties.filter(p => p.status === 'missing_data').length;
 
-  // 2. Helper for Interactive Card
-  const StatCard = ({ label, value, icon: Icon, colorClass, bgClass, filterType }: any) => {
-    const isActive = activeFilter === filterType;
+  const KPI = ({ label, value, icon: Icon, color, filter }: any) => {
+    const isActive = activeFilter === filter;
     
     return (
-      <button 
-        onClick={() => onFilterChange(filterType)}
+      <button
+        onClick={() => onFilterChange(filter)}
         className={cn(
-          "flex-1 bg-surface rounded-md shadow-lvl1 border p-md flex items-center gap-md text-left transition-all duration-200",
-          "hover:shadow-lvl2 hover:-translate-y-0.5",
-          isActive ? "border-brand ring-1 ring-brand bg-blue-50/30" : "border-border"
+          "flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all hover:bg-slate-100 border border-transparent",
+          isActive ? "bg-white border-border shadow-sm" : "opacity-60 hover:opacity-100"
         )}
       >
-        <div className={cn("p-3 rounded-full", bgClass)}>
-          <Icon className={cn("w-6 h-6", colorClass)} />
+        <div className={cn("p-1 rounded-full", isActive ? "bg-slate-100" : "bg-transparent")}>
+           <Icon className={cn("w-3.5 h-3.5", color)} />
         </div>
-        <div>
-          <p className="text-2xl font-bold text-text-primary tabular-nums">{value}</p>
-          <p className={cn("text-xs font-semibold uppercase tracking-wide", isActive ? "text-brand" : "text-text-secondary")}>
-            {label}
-          </p>
-        </div>
+        <span className={cn("text-xs font-semibold uppercase tracking-wide", isActive ? "text-text-primary" : "text-text-secondary")}>
+          {label}: <span className={cn("ml-1 font-bold tabular-nums text-sm", color)}>{value}</span>
+        </span>
       </button>
     );
   };
 
+  const Divider = () => <div className="h-4 w-[1px] bg-border mx-1" />;
+
   return (
-    <div className="flex gap-lg mb-lg">
-      <StatCard 
-        label="Total Locations" 
-        value={totalSites} 
-        icon={Building2} 
-        colorClass="text-brand" 
-        bgClass="bg-blue-50"
-        filterType="all"
-      />
-      <StatCard 
-        label="Operational (Active)" 
-        value={active} 
-        icon={CheckCircle2} 
-        colorClass="text-status-active" 
-        bgClass="bg-status-activeBg"
-        filterType="active"
-      />
-      <StatCard 
-        label="Critical Action" 
-        value={critical} 
-        icon={AlertCircle} 
-        colorClass="text-status-critical" 
-        bgClass="bg-status-criticalBg"
-        filterType="critical"
-      />
-      <StatCard 
-        label="Data Missing" 
-        value={missingData} 
-        icon={Clock} 
-        colorClass="text-slate-500" 
-        bgClass="bg-slate-100"
-        filterType="missing_data"
-      />
+    <div className="flex items-center bg-slate-50 border border-border rounded-md shadow-sm h-12 px-2 mb-4 w-fit">
+      <KPI label="Total" value={total} icon={Building2} color="text-brand" filter="all" />
+      <Divider />
+      <KPI label="Active" value={active} icon={CheckCircle2} color="text-status-active" filter="active" />
+      <Divider />
+      <KPI label="Critical" value={critical} icon={AlertCircle} color="text-status-critical" filter="critical" />
+      <Divider />
+      <KPI label="Missing" value={missing} icon={Clock} color="text-slate-500" filter="missing_data" />
     </div>
   );
 }
