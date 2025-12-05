@@ -10,7 +10,7 @@ import IngestionConsole from './features/admin/IngestionConsole';
 import { LayoutDashboard, LogOut, Upload, Search, Calendar, AlertTriangle, Users } from 'lucide-react';
 import { useProperties } from './hooks/useProperties';
 import { cn } from './lib/utils';
-import type { Property } from './dataModel';
+import type { Property, FilterType } from './dataModel';
 
 type SmartView = 'overview' | 'critical' | 'gaps' | 'vendor';
 
