@@ -5,12 +5,12 @@ import MasterGrid from './features/portfolio/MasterGrid';
 import PropertyDetail from './features/property/PropertyDetail';
 import MetricsHUD from './features/portfolio/MetricsHUD';
 import IngestionConsole from './features/admin/IngestionConsole';
-import { LayoutDashboard, LogOut, Upload, Search, Bell } from 'lucide-react'; // Added Bell
+import { LayoutDashboard, LogOut, Upload, Search, Bell } from 'lucide-react';
 import { useProperties } from './hooks/useProperties';
 import type { Property, FilterType } from './dataModel';
 
 function Dashboard() {
-  const { logout, user, isAdmin } = useAuth();
+  const { logout, user } = useAuth();
   const { properties, loading, error, updateProperty } = useProperties();
 
   // UI State
@@ -90,11 +90,12 @@ function Dashboard() {
         ) : (
           <>
             {/* UNIFIED HEADER ROW */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-md mb-lg shrink-0">
+            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-md mb-lg shrink-0">
               
-              {/* Left Group: Search + Actions */}
-              <div className="flex items-center gap-sm w-full md:w-auto">
-                {/* Search Bar (Height 48px/h-12 to match HUD) */}
+              {/* Left Group: Search + HUD */}
+              <div className="flex items-center gap-md w-full xl:w-auto">
+                
+                {/* Search Bar */}
                 <div className="relative group flex-1 md:flex-none">
                   <Search className="absolute left-3 top-3.5 w-5 h-5 text-text-secondary group-focus-within:text-brand transition-colors" />
                   <input 
@@ -106,37 +107,37 @@ function Dashboard() {
                   />
                 </div>
 
-                {/* Protected Actions */}
-                {isAdmin && (
-                  <>
-                    <button 
-                      onClick={() => setShowIngestion(true)}
-                      className="h-12 px-4 bg-white border border-border rounded-md text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors whitespace-nowrap"
-                    >
-                      <Upload className="w-4 h-4 text-text-secondary" />
-                      Import
-                    </button>
-                    <button className="h-12 px-4 bg-brand text-white rounded-md text-sm font-medium shadow-sm hover:bg-brand-dark transition-colors whitespace-nowrap">
-                      + Add Property
-                    </button>
-                  </>
-                )}
+                {/* Metrics HUD */}
+                <MetricsHUD 
+                  properties={searchResults} 
+                  activeFilter={statusFilter}
+                  onFilterChange={setStatusFilter}
+                />
+              </div>
 
-                {/* Notification Bell */}
+              {/* Right Group: Actions + Bell */}
+              <div className="flex items-center gap-2 self-end xl:self-auto">
+                <button 
+                  onClick={() => setShowIngestion(true)}
+                  className="h-12 px-4 bg-white border border-border rounded-md text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors whitespace-nowrap"
+                >
+                  <Upload className="w-4 h-4 text-text-secondary" />
+                  Import
+                </button>
+                <button className="h-12 px-4 bg-brand text-white rounded-md text-sm font-medium shadow-sm hover:bg-brand-dark transition-colors whitespace-nowrap">
+                  + Add Property
+                </button>
+                
+                <div className="h-8 w-[1px] bg-border mx-2" />
+                
                 <button className="h-12 w-12 flex items-center justify-center bg-white border border-border rounded-md shadow-sm hover:bg-slate-50 transition-colors">
                   <Bell className="w-5 h-5 text-text-secondary" />
                 </button>
               </div>
 
-              {/* Right Group: Metrics HUD */}
-              <MetricsHUD 
-                properties={searchResults} 
-                activeFilter={statusFilter}
-                onFilterChange={setStatusFilter}
-              />
             </div>
 
-            {/* Main Grid (Extends to fill space) */}
+            {/* Main Grid */}
             <div className="flex-1 min-h-0"> 
               <MasterGrid 
                 data={viewData} 
