@@ -1,4 +1,4 @@
-import { Building2, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Property, FilterType } from '../../dataModel';
 
@@ -9,11 +9,14 @@ interface MetricsHUDProps {
 }
 
 export default function MetricsHUD({ properties, activeFilter, onFilterChange }: MetricsHUDProps) {
-  // Calculate Counts
+  // 1. Calculate Counts
   const total = properties.length;
-  const critical = properties.filter(p => p.status === 'critical').length;
   const active = properties.filter(p => p.status === 'active').length;
-  const missing = properties.filter(p => p.status === 'missing_data').length;
+  
+  // "Action Required" = Critical + Missing Data + Review (Warning)
+  const actionRequired = properties.filter(p => 
+    ['critical', 'missing_data', 'warning'].includes(p.status)
+  ).length;
 
   const KPI = ({ label, value, icon: Icon, color, filter }: any) => {
     const isActive = activeFilter === filter;
@@ -22,7 +25,6 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
       <button
         onClick={() => onFilterChange(filter)}
         className={cn(
-          // Added 'whitespace-nowrap' to prevent long labels from breaking the layout
           "flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all hover:bg-slate-100 border border-transparent whitespace-nowrap",
           isActive ? "bg-white border-border shadow-sm" : "opacity-60 hover:opacity-100"
         )}
@@ -58,19 +60,11 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
       />
       <Divider />
       <KPI 
-        label="Cancellation Notice Due" 
-        value={critical} 
+        label="Action Required" 
+        value={actionRequired} 
         icon={AlertCircle} 
         color="text-status-critical" 
-        filter="critical" 
-      />
-      <Divider />
-      <KPI 
-        label="Missing Data" 
-        value={missing} 
-        icon={Clock} 
-        color="text-slate-500" 
-        filter="missing_data" 
+        filter="action_required" 
       />
     </div>
   );
