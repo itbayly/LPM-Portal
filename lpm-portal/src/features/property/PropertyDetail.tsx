@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+// CHANGED: Removed 'React'
+import { useState } from 'react';
+// CHANGED: Removed 'Save' from the icon list
 import { 
   ArrowLeft, User, Phone, Mail, FileText, AlertTriangle, 
-  DollarSign, CheckCircle2, Trash2, Plus, Download, Save
+  DollarSign, CheckCircle2, Trash2, Plus, Download
 } from 'lucide-react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
