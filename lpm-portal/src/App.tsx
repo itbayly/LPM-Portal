@@ -5,15 +5,13 @@ import MasterGrid from './features/portfolio/MasterGrid';
 import PropertyDetail from './features/property/PropertyDetail';
 import MetricsHUD from './features/portfolio/MetricsHUD';
 import IngestionConsole from './features/admin/IngestionConsole';
-import { LayoutDashboard, LogOut, Upload, Search, Calendar, AlertTriangle, Users } from 'lucide-react';
+import { LayoutDashboard, LogOut, Upload, Search, Bell } from 'lucide-react'; // Added Bell
 import { useProperties } from './hooks/useProperties';
 import { cn } from './lib/utils';
 import type { Property, FilterType } from './dataModel';
 
-type SmartView = 'overview' | 'critical' | 'gaps' | 'vendor';
-
 function Dashboard() {
-  const { logout, user } = useAuth();
+  const { logout, user, isAdmin } = useAuth();
   const { properties, loading, error, updateProperty } = useProperties();
 
   // UI State
@@ -21,11 +19,10 @@ function Dashboard() {
   const [showIngestion, setShowIngestion] = useState(false);
   
   // Filters & Search
-  const [currentView, setCurrentView] = useState<SmartView>('overview');
   const [statusFilter, setStatusFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Search Algorithm (Indexed Fields: Name, Address, City, Zip, ID, Vendor)
+  // 1. Search Algorithm
   const searchResults = useMemo(() => {
     if (!searchQuery) return properties;
     const q = searchQuery.toLowerCase();
@@ -39,42 +36,21 @@ function Dashboard() {
     );
   }, [properties, searchQuery]);
 
-  // 2. View Logic
+  // 2. View Logic (Status Filter Only)
   const viewData = useMemo(() => {
     let result = searchResults;
 
-    switch (currentView) {
-      case 'critical':
-        const sixMonthsFromNow = new Date();
-        sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
-        result = searchResults.filter(p => new Date(p.contractEndDate) < sixMonthsFromNow);
-        break;
-      case 'gaps':
-        result = searchResults.filter(p => p.status === 'missing_data');
-        break;
-      case 'vendor':
-        // Note: Main alphabetical sort is now handled by MasterGrid headers, 
-        // but this view could pre-sort or grouping logic in future.
-        result = [...searchResults].sort((a, b) => a.vendor.name.localeCompare(b.vendor.name));
-        break;
-      case 'overview':
-      default:
-        break;
-    }
-
-    // B. Then apply the HUD Status Filter (if a tile is clicked)
+    // Apply HUD Status Filter
     if (statusFilter !== 'all') {
       if (statusFilter === 'action_required') {
-        // Filter for Critical OR Missing Data OR Warning
         result = result.filter(p => ['critical', 'missing_data', 'warning'].includes(p.status));
       } else {
-        // Standard single-status filter (e.g. 'active')
         result = result.filter(p => p.status === statusFilter);
       }
     }
 
     return result;
-  }, [searchResults, currentView, statusFilter]);
+  }, [searchResults, statusFilter]);
 
   const handlePropertyUpdate = (id: string, data: Partial<Property>) => {
     updateProperty(id, data);
@@ -114,75 +90,54 @@ function Dashboard() {
           />
         ) : (
           <>
-            {/* UNIFIED TOOLBAR: HUD + Actions + Search */}
-            <div className="shrink-0 space-y-4 mb-4">
+            {/* UNIFIED HEADER ROW */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-md mb-lg shrink-0">
               
-              {/* Row 1: Slim KPI Strip */}
+              {/* Left Group: Search + Actions */}
+              <div className="flex items-center gap-sm w-full md:w-auto">
+                {/* Search Bar (Height 48px/h-12 to match HUD) */}
+                <div className="relative group flex-1 md:flex-none">
+                  <Search className="absolute left-3 top-3.5 w-5 h-5 text-text-secondary group-focus-within:text-brand transition-colors" />
+                  <input 
+                    type="text"
+                    placeholder="Search portfolio..."
+                    className="h-12 pl-10 pr-4 w-full md:w-[320px] bg-white border border-border rounded-md text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all shadow-sm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                {/* Protected Actions */}
+                {isAdmin && (
+                  <>
+                    <button 
+                      onClick={() => setShowIngestion(true)}
+                      className="h-12 px-4 bg-white border border-border rounded-md text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors whitespace-nowrap"
+                    >
+                      <Upload className="w-4 h-4 text-text-secondary" />
+                      Import
+                    </button>
+                    <button className="h-12 px-4 bg-brand text-white rounded-md text-sm font-medium shadow-sm hover:bg-brand-dark transition-colors whitespace-nowrap">
+                      + Add Property
+                    </button>
+                  </>
+                )}
+
+                {/* Notification Bell */}
+                <button className="h-12 w-12 flex items-center justify-center bg-white border border-border rounded-md shadow-sm hover:bg-slate-50 transition-colors">
+                  <Bell className="w-5 h-5 text-text-secondary" />
+                </button>
+              </div>
+
+              {/* Right Group: Metrics HUD */}
               <MetricsHUD 
                 properties={searchResults} 
                 activeFilter={statusFilter}
                 onFilterChange={setStatusFilter}
               />
-
-              {/* Row 2: Controls */}
-              <div className="flex justify-between items-end">
-                
-                {/* Left: Tabs + Search */}
-                <div className="flex items-center gap-4">
-                  {/* Search */}
-                  <div className="relative group">
-                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary group-focus-within:text-brand transition-colors" />
-                    <input 
-                      type="text"
-                      placeholder="Search portfolio..."
-                      className="h-9 pl-9 pr-4 w-[240px] bg-white border border-border rounded-sm text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all shadow-sm"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-6 w-[1px] bg-border" />
-
-                  {/* Tabs */}
-                  <div className="flex p-0.5 bg-slate-100 rounded-md border border-slate-200">
-                    {[
-                      { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-                      { id: 'critical', label: 'Critical', icon: Calendar },
-                      { id: 'gaps', label: 'Gaps', icon: AlertTriangle },
-                      { id: 'vendor', label: 'Vendors', icon: Users },
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => { setCurrentView(tab.id as SmartView); setStatusFilter('all'); }}
-                        className={cn(
-                          "px-3 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2",
-                          currentView === tab.id ? "bg-white text-brand shadow-sm" : "text-text-secondary hover:text-text-primary"
-                        )}
-                      >
-                        <tab.icon className="w-3.5 h-3.5" /> {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right: Actions */}
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setShowIngestion(true)}
-                    className="h-9 px-4 bg-white border border-border rounded-sm text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                  >
-                    <Upload className="w-4 h-4 text-text-secondary" />
-                    Import
-                  </button>
-                  <button className="h-9 px-4 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark transition-colors">
-                    + Add Property
-                  </button>
-                </div>
-              </div>
             </div>
 
-            {/* Main Grid */}
+            {/* Main Grid (Extends to fill space) */}
             <div className="flex-1 min-h-0"> 
               <MasterGrid 
                 data={viewData} 
