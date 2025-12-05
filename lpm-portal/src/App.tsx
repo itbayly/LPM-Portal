@@ -7,7 +7,6 @@ import MetricsHUD from './features/portfolio/MetricsHUD';
 import IngestionConsole from './features/admin/IngestionConsole';
 import { LayoutDashboard, LogOut, Upload, Search, Bell } from 'lucide-react'; // Added Bell
 import { useProperties } from './hooks/useProperties';
-import { cn } from './lib/utils';
 import type { Property, FilterType } from './dataModel';
 
 function Dashboard() {
