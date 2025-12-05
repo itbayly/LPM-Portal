@@ -1,7 +1,16 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
-import { ChevronLeft, ChevronRight, ArrowUpDown, Filter } from 'lucide-react';
+import { 
+  ChevronDown, 
+  ArrowUpAZ, 
+  ArrowDownZA, 
+  Search, 
+  Check, 
+  Filter, 
+  ArrowUp, 
+  ArrowDown 
+} from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
 
@@ -17,18 +26,23 @@ type SortState = {
   direction: 'asc' | 'desc';
 };
 
-// Helper to get unique values for a column
+// --- HELPER FUNCTIONS ---
+
+// Safely access nested properties (e.g., "vendor.name")
+const getValue = (item: Property, path: string) => {
+  if (path.includes('.')) {
+    const [obj, key] = path.split('.');
+    return (item as any)[obj]?.[key];
+  }
+  return (item as any)[path];
+};
+
+// Get unique values for the filter list
 const getUniqueValues = (data: Property[], key: string) => {
   const values = new Set<string>();
   data.forEach(item => {
-    let val: any = item;
-    if (key.includes('.')) {
-      const [obj, k] = key.split('.');
-      val = val[obj][k];
-    } else {
-      val = val[key as keyof Property];
-    }
-    if (val) values.add(String(val));
+    const val = getValue(item, key);
+    if (val !== undefined && val !== null) values.add(String(val));
   });
   return Array.from(values).sort();
 };
@@ -41,45 +55,32 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // Sorting State
   const [sortConfig, setSortConfig] = useState<SortState | null>(null);
 
-  // Filtering State: { city: "Chicago", state: "NY" }
-  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
-  const [openFilterColumn, setOpenFilterColumn] = useState<string | null>(null);
+  // Filtering State: Record<ColumnKey, ArrayOfSelectedValues>
+  // If a key is missing from this object, it means "Select All" (No filter)
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  
+  // Menu State
+  const [openMenuColumn, setOpenMenuColumn] = useState<string | null>(null);
 
-  // 1. FILTERING LOGIC
+  // --- 1. FILTERING ENGINE ---
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      return Object.entries(activeFilters).every(([key, filterValue]) => {
-        if (!filterValue) return true;
-        
-        let itemValue: any = item;
-        if (key.includes('.')) {
-          const [obj, k] = key.split('.');
-          itemValue = itemValue[obj][k];
-        } else {
-          itemValue = itemValue[key as keyof Property];
-        }
-        
-        return String(itemValue) === filterValue;
+      // Check every active filter
+      return Object.entries(activeFilters).every(([key, selectedValues]) => {
+        if (selectedValues.length === 0) return true; // Should ideally be deleted, but safe check
+        const itemValue = String(getValue(item, key));
+        return selectedValues.includes(itemValue);
       });
     });
   }, [data, activeFilters]);
 
-  // 2. SORTING LOGIC (Applied to filtered data)
+  // --- 2. SORTING ENGINE ---
   const sortedData = useMemo(() => {
     if (!sortConfig) return filteredData;
 
-    return [...filteredData].sort((a: any, b: any) => {
-      let aValue = a;
-      let bValue = b;
-
-      if (String(sortConfig.key).includes('.')) {
-        const [obj, key] = (sortConfig.key as string).split('.');
-        aValue = a[obj][key];
-        bValue = b[obj][key];
-      } else {
-        aValue = a[sortConfig.key];
-        bValue = b[sortConfig.key];
-      }
+    return [...filteredData].sort((a, b) => {
+      const aValue = getValue(a, String(sortConfig.key));
+      const bValue = getValue(b, String(sortConfig.key));
 
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -87,124 +88,212 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     });
   }, [filteredData, sortConfig]);
 
-  // 3. PAGINATION LOGIC
+  // --- 3. PAGINATION ENGINE ---
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = sortedData.slice(startIndex, startIndex + itemsPerPage);
 
   // Handlers
-  const handleSort = (key: SortKey) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+  const handleSort = (key: SortKey, direction: 'asc' | 'desc') => {
     setSortConfig({ key, direction });
+    setOpenMenuColumn(null); // Close menu after sort
   };
 
-  const toggleFilter = (columnKey: string, value: string | null) => {
+  const applyFilter = (key: string, selectedValues: string[] | null) => {
     setActiveFilters(prev => {
       const next = { ...prev };
-      if (value) next[columnKey] = value;
-      else delete next[columnKey];
+      if (selectedValues === null) {
+        delete next[key]; // Remove filter -> "Select All"
+      } else {
+        next[key] = selectedValues;
+      }
       return next;
     });
-    setOpenFilterColumn(null); // Close dropdown
-    setCurrentPage(1); // Reset to page 1
+    setOpenMenuColumn(null);
+    setCurrentPage(1);
   };
 
-  // --- UI COMPONENTS ---
+  // --- INTERNAL COMPONENT: EXCEL HEADER MENU ---
+  const HeaderMenu = ({ columnKey, options, onClose }: { columnKey: string, options: string[], onClose: () => void }) => {
+    // Local state for the checkbox list before "Applying"
+    const initialSelection = activeFilters[columnKey] || options; // Default to all if no filter
+    const [selected, setSelected] = useState<string[]>(initialSelection);
+    const [search, setSearch] = useState('');
 
-  const HeaderCell = ({ label, sortKey, filterKey, width }: { label: string, sortKey?: SortKey, filterKey?: string, width?: string }) => {
-    const isSorted = sortConfig?.key === sortKey;
-    const isFiltered = filterKey ? !!activeFilters[filterKey] : false;
-    const filterRef = useRef<HTMLDivElement>(null);
+    const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
+    const isAllSelected = filteredOptions.every(opt => selected.includes(opt));
 
+    const toggleOption = (opt: string) => {
+      if (selected.includes(opt)) {
+        setSelected(selected.filter(s => s !== opt));
+      } else {
+        setSelected([...selected, opt]);
+      }
+    };
+
+    const toggleSelectAll = () => {
+      if (isAllSelected) {
+        // Deselect currently visible options
+        setSelected(selected.filter(s => !filteredOptions.includes(s)));
+      } else {
+        // Select all visible options
+        const newSelected = new Set([...selected, ...filteredOptions]);
+        setSelected(Array.from(newSelected));
+      }
+    };
+
+    return (
+      <div 
+        className="absolute top-full left-0 mt-1 w-64 bg-white border border-border rounded-md shadow-lvl3 z-50 text-sm flex flex-col animate-in fade-in zoom-in-95 duration-100"
+        onClick={(e) => e.stopPropagation()} // Prevent click from bubbling to header
+      >
+        {/* Sort Section */}
+        <div className="p-2 border-b border-border space-y-1">
+          <button 
+            onClick={() => handleSort(columnKey as SortKey, 'asc')}
+            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-100 rounded-sm text-text-primary transition-colors"
+          >
+            <ArrowUpAZ className="w-4 h-4 text-text-secondary" />
+            <span>Sort A to Z</span>
+          </button>
+          <button 
+            onClick={() => handleSort(columnKey as SortKey, 'desc')}
+            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-100 rounded-sm text-text-primary transition-colors"
+          >
+            <ArrowDownZA className="w-4 h-4 text-text-secondary" />
+            <span>Sort Z to A</span>
+          </button>
+        </div>
+
+        {/* Filter Search */}
+        <div className="p-2 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-text-secondary" />
+            <input 
+              type="text" 
+              placeholder="Search..." 
+              className="w-full pl-8 pr-3 py-1.5 border border-border rounded-sm text-xs focus:border-brand focus:ring-1 focus:ring-brand outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Checkbox List */}
+        <div className="max-h-48 overflow-y-auto p-1 bg-slate-50/50">
+          <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-100 cursor-pointer rounded-sm">
+            <input 
+              type="checkbox" 
+              className="rounded border-slate-300 text-brand focus:ring-brand accent-brand"
+              checked={isAllSelected}
+              onChange={toggleSelectAll}
+            />
+            <span className="font-medium text-xs">(Select All)</span>
+          </label>
+          
+          {filteredOptions.map(opt => (
+            <label key={opt} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-100 cursor-pointer rounded-sm">
+              <input 
+                type="checkbox" 
+                className="rounded border-slate-300 text-brand focus:ring-brand accent-brand"
+                checked={selected.includes(opt)}
+                onChange={() => toggleOption(opt)}
+              />
+              <span className="text-xs truncate">{opt}</span>
+            </label>
+          ))}
+          
+          {filteredOptions.length === 0 && (
+            <div className="px-3 py-2 text-xs text-text-secondary text-center italic">No matches</div>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-2 border-t border-border flex justify-between bg-white rounded-b-md">
+          <button 
+            onClick={() => applyFilter(columnKey, null)} // Clear filter
+            className="px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
+          >
+            Clear
+          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-slate-100 rounded-sm border border-transparent"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={() => applyFilter(columnKey, selected.length === options.length ? null : selected)}
+              className="px-3 py-1.5 text-xs font-bold text-white bg-brand hover:bg-brand-dark rounded-sm shadow-sm"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // --- HEADER CELL COMPONENT ---
+  const HeaderCell = ({ label, columnKey, width }: { label: string, columnKey: string, width?: string }) => {
+    const isSorted = sortConfig?.key === columnKey;
+    const isFiltered = activeFilters[columnKey] !== undefined;
+    const isOpen = openMenuColumn === columnKey;
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    // Click outside to close
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-          if (openFilterColumn === filterKey) setOpenFilterColumn(null);
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          if (isOpen) setOpenMenuColumn(null);
         }
       };
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [openFilterColumn, filterKey]);
+    }, [isOpen]);
 
     return (
-      <th className={cn("py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border select-none relative group", width)}>
-        <div className="flex items-center justify-between gap-2 h-full">
+      <th 
+        className={cn(
+          "py-3 px-4 text-[11px] font-bold text-text-secondary uppercase tracking-wider border-b border-border select-none relative group cursor-pointer hover:bg-slate-100 transition-colors", 
+          width,
+          (isSorted || isFiltered || isOpen) && "bg-slate-100 text-text-primary"
+        )}
+        onClick={() => setOpenMenuColumn(isOpen ? null : columnKey)}
+      >
+        <div className="flex items-center justify-between gap-1" ref={menuRef}>
+          <span className="truncate">{label}</span>
           
-          {/* 1. Sortable Label Area */}
-          <button 
-            onClick={() => sortKey && handleSort(sortKey)}
-            className="flex items-center hover:text-text-primary transition-colors flex-1 text-left"
-          >
-            {label}
-            {sortKey && (
-              <ArrowUpDown className={cn(
-                "w-3 h-3 ml-1 transition-opacity", 
-                isSorted ? "opacity-100 text-brand" : "opacity-0 group-hover:opacity-50"
-              )} />
+          {/* Indicators container */}
+          <div className="flex items-center">
+            {/* Sort Indicator */}
+            {isSorted && (
+              sortConfig?.direction === 'asc' 
+                ? <ArrowUp className="w-3 h-3 text-brand mr-1" /> 
+                : <ArrowDown className="w-3 h-3 text-brand mr-1" />
             )}
-          </button>
+            
+            {/* Filter Indicator */}
+            {isFiltered && <Filter className="w-3 h-3 text-brand fill-brand mr-1" />}
 
-          {/* 2. Distinct Filter Trigger */}
-          {filterKey && (
-            <div className="relative" ref={filterRef}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setOpenFilterColumn(openFilterColumn === filterKey ? null : filterKey); }}
-                className={cn(
-                  "p-1.5 rounded-sm transition-all duration-200 border", 
-                  isFiltered 
-                    ? "bg-brand text-white border-brand shadow-sm"  // Active State (High Vis)
-                    : "bg-transparent text-slate-400 border-transparent hover:bg-slate-200 hover:text-slate-700" // Default State
-                )}
-                title={`Filter by ${label}`}
-              >
-                <Filter className="w-3 h-3" strokeWidth={isFiltered ? 3 : 2} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {openFilterColumn === filterKey && (
-                <div className="absolute top-8 right-0 w-56 bg-white border border-border shadow-lvl3 rounded-md z-[100] animate-in fade-in zoom-in-95 duration-100 flex flex-col">
-                  
-                  {/* Dropdown Header */}
-                  <div className="p-3 border-b border-border bg-slate-50 flex justify-between items-center rounded-t-md">
-                    <span className="text-xs font-bold text-text-primary">Filter {label}</span>
-                    {isFiltered && (
-                      <button 
-                        onClick={() => toggleFilter(filterKey, null)} 
-                        className="text-[10px] text-red-600 font-semibold hover:underline"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Options List */}
-                  <div className="max-h-64 overflow-y-auto p-1 custom-scrollbar">
-                    {getUniqueValues(data, filterKey).map(val => (
-                      <button
-                        key={val}
-                        onClick={() => toggleFilter(filterKey, val)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 text-xs rounded-sm transition-colors truncate",
-                          activeFilters[filterKey] === val 
-                            ? "bg-brand/10 text-brand font-bold" 
-                            : "hover:bg-slate-50 text-text-primary"
-                        )}
-                      >
-                        {val}
-                      </button>
-                    ))}
-                    {getUniqueValues(data, filterKey).length === 0 && (
-                      <div className="p-3 text-center text-xs text-text-secondary italic">
-                        No options found
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+            {/* Menu Trigger (Always visible on hover or active) */}
+            <div className={cn(
+              "p-0.5 rounded-sm transition-opacity",
+              isOpen || isSorted || isFiltered ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            )}>
+              <ChevronDown className="w-3.5 h-3.5 text-text-secondary" />
             </div>
+          </div>
+
+          {/* The Excel Menu */}
+          {isOpen && (
+            <HeaderMenu 
+              columnKey={columnKey} 
+              options={getUniqueValues(data, columnKey)} 
+              onClose={() => setOpenMenuColumn(null)} 
+            />
           )}
         </div>
       </th>
@@ -215,20 +304,20 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     <div className="w-full bg-surface rounded-md shadow-lvl1 border border-border overflow-hidden flex flex-col h-full">
       <div className="overflow-auto flex-1 relative min-h-[400px]">
         <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm group">
+          <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
             <tr>
-              <HeaderCell label="Status" sortKey="status" filterKey="status" width="w-[120px]" />
-              <HeaderCell label="Property Name" sortKey="name" width="min-w-[180px]" />
-              <HeaderCell label="Address" width="min-w-[140px]" />
-              <HeaderCell label="City" sortKey="city" filterKey="city" />
-              <HeaderCell label="State" sortKey="state" filterKey="state" />
-              <HeaderCell label="Zip" filterKey="zip" />
-              <HeaderCell label="Units" />
-              <HeaderCell label="Vendor" sortKey="vendor.name" filterKey="vendor.name" />
-              <HeaderCell label="Rating" sortKey="vendor.rating" width="w-[120px]" />
-              <HeaderCell label="Price/Mo" sortKey="vendor.currentPrice" />
-              <HeaderCell label="End Date" sortKey="contractEndDate" />
-              <HeaderCell label="Notice" />
+              <HeaderCell label="Status" columnKey="status" width="w-[120px]" />
+              <HeaderCell label="Property Name" columnKey="name" width="min-w-[180px]" />
+              <HeaderCell label="Address" columnKey="address" width="min-w-[140px]" />
+              <HeaderCell label="City" columnKey="city" />
+              <HeaderCell label="State" columnKey="state" />
+              <HeaderCell label="Zip" columnKey="zip" />
+              <HeaderCell label="Units" columnKey="unitCount" />
+              <HeaderCell label="Vendor" columnKey="vendor.name" />
+              <HeaderCell label="Rating" columnKey="vendor.rating" width="w-[120px]" />
+              <HeaderCell label="Price/Mo" columnKey="vendor.currentPrice" />
+              <HeaderCell label="End Date" columnKey="contractEndDate" />
+              <HeaderCell label="Notice" columnKey="cancellationWindow" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -252,6 +341,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
         </table>
       </div>
 
+      {/* Pagination Footer */}
       <div className="border-t border-border p-3 bg-white flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <span>Rows per page:</span>
