@@ -102,6 +102,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       initialTerm: `${data.initialTermNum} ${data.initialTermUnit}`,
       renewalTerm: `${data.renewalTermNum} ${data.renewalTermUnit}`,
       onNationalContract: data.onNationalContract,
+      contacts: data.contacts, // UPDATED: Save Contacts
       vendor: {
         ...property.vendor,
         name: data.vendorName,
@@ -121,7 +122,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
 
   const vendor = property.vendor || {};
   const manager = property.manager || {};
-  const regionalPm = property.regionalPm || {}; 
+  const regionalPm = property.regionalPm || {};
   const contacts = property.contacts || [];
   const price = typeof vendor.currentPrice === 'number' ? vendor.currentPrice : 0;
 
@@ -201,6 +202,7 @@ Please confirm receipt of this cancellation notice in writing.
 
 Sincerely,
 ${profile?.name || "Property Manager"}
+LPM Property Management
 --------------------------------------------------
 
 [Note: Attach the contract PDF if available]
@@ -378,7 +380,7 @@ ${profile?.name || "Property Manager"}
               </div>
             </div>
 
-            {/* Regional PM Info - NEW SECTION */}
+            {/* Regional PM Info */}
             <div className="flex items-start gap-md pt-4 border-t border-border">
               <div className="p-2 bg-slate-100 rounded-full">
                 <User className="w-5 h-5 text-slate-500" />
