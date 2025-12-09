@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Property, PropertyStatus, UserProfile, UserRole, AccessScope, Contact } from '../dataModel';
+import type { Property, UserProfile, UserRole, AccessScope, Contact } from '../dataModel';
 
 // --- TEMPLATES ---
 const PROPERTY_HEADERS = [
@@ -154,7 +154,7 @@ export const parsePropertyFile = async (file: File): Promise<{ properties: Prope
           if (nb && na) noticeString = `${nb} - ${na} Days`;
           else if (na) noticeString = `${na} Days`; 
 
-          // UPDATED: Logic to read "X" as true
+          // Logic to read "X" as true
           const rawNational = getVal('On National Contract').toLowerCase();
           const isOnNational = rawNational === 'x' || rawNational === 'yes' || rawNational === 'true';
 
@@ -203,7 +203,7 @@ export const parsePropertyFile = async (file: File): Promise<{ properties: Prope
             renewalTerm: getVal('Renewal Term'),
             cancellationWindow: noticeString,
             autoRenews: true,
-            onNationalContract: isOnNational, // Now correctly mapped
+            onNationalContract: isOnNational, 
             contacts: contacts
           };
         });
