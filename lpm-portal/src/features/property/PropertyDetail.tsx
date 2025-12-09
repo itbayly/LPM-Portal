@@ -7,6 +7,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
 import VerificationWizard from '../verification/VerificationWizard';
 import { useAuth } from '../auth/AuthContext';
+import { cn } from '../../lib/utils'; // <-- ADDED THIS IMPORT
 import type { Property, Contact } from '../../dataModel';
 
 interface PropertyDetailProps {
@@ -34,6 +35,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
   const { profile } = useAuth();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
+  // -- HANDLERS --
   const updateVendor = (field: string, value: any) => {
     onUpdate(property.id, { vendor: { ...property.vendor, [field]: value } });
   };
@@ -99,7 +101,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       cancellationWindow: noticeString,
       initialTerm: `${data.initialTermNum} ${data.initialTermUnit}`,
       renewalTerm: `${data.renewalTermNum} ${data.renewalTermUnit}`,
-      // UPDATED: Saving National Contract Status
       onNationalContract: data.onNationalContract,
       vendor: {
         ...property.vendor,
@@ -373,7 +374,7 @@ LPM Property Management
             <div className="mb-lg">
               <div className="flex items-start justify-between">
                 <span className="text-lg font-bold text-brand block">{vendor.name || "No Vendor Selected"}</span>
-                {/* UPDATED: National Contract Pill */}
+                {/* National Contract Pill */}
                 {vendor.name === 'Schindler' && (
                   <span className={cn(
                     "text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide",
