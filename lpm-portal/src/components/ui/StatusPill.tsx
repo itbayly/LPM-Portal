@@ -1,50 +1,69 @@
-import React from 'react';
 import { cn } from '../../lib/utils';
 import type { PropertyStatus } from '../../dataModel';
 
 interface StatusPillProps {
   status: PropertyStatus;
+  className?: string;
 }
 
-export const StatusPill: React.FC<StatusPillProps> = ({ status }) => {
+export function StatusPill({ status, className }: StatusPillProps) {
   
-  const getStyle = (s: PropertyStatus) => {
+  const getStatusConfig = (s: PropertyStatus) => {
     switch (s) {
       case 'active':
-        return "bg-status-activeBg text-status-active border-green-200";
+        return {
+          label: 'Active',
+          style: 'bg-status-activeBg text-status-active border-green-200'
+        };
       case 'warning':
-        return "bg-status-warningBg text-status-warning border-blue-200";
+        return {
+          label: 'Review Needed',
+          style: 'bg-status-warningBg text-status-warning border-yellow-200'
+        };
       case 'critical':
-        return "bg-status-criticalBg text-status-critical border-red-200";
+        return {
+          label: 'Critical',
+          style: 'bg-status-criticalBg text-status-critical border-red-200'
+        };
       case 'missing_data':
+        return {
+          label: 'Missing Data',
+          style: 'bg-slate-100 text-slate-600 border-slate-200'
+        };
+      case 'no_elevators':
+        return {
+          label: 'No Elevators',
+          style: 'bg-slate-200 text-slate-600 border-slate-300'
+        };
+      case 'pending_rpm_review':
+        return {
+          label: 'Pending Review',
+          style: 'bg-amber-100 text-amber-700 border-amber-200'
+        };
+      case 'no_service_contract':
+        return {
+          label: 'No Contract',
+          style: 'bg-status-criticalBg text-status-critical border-red-200'
+        };
       default:
-        return "bg-gray-100 text-gray-500 border-gray-200";
+        return {
+          label: 'Unknown',
+          style: 'bg-gray-100 text-gray-500'
+        };
     }
   };
 
-  const getLabel = (s: PropertyStatus) => {
-    switch (s) {
-      case 'active': return "Active";
-      case 'warning': return "Review";
-      case 'critical': return "Critical";
-      case 'missing_data': return "Missing Data";
-      default: return "Unknown";
-    }
-  };
+  const config = getStatusConfig(status);
 
   return (
-    <span className={cn(
-      "inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap", // Added whitespace-nowrap
-      getStyle(status)
-    )}>
-      <span className={cn(
-        "w-2 h-2 rounded-full mr-2 shrink-0", // Added shrink-0 to protect the dot
-        status === 'active' && "bg-status-active",
-        status === 'warning' && "bg-status-warning",
-        status === 'critical' && "bg-status-critical",
-        status === 'missing_data' && "bg-gray-400"
-      )} />
-      {getLabel(status)}
+    <span 
+      className={cn(
+        "px-2.5 py-0.5 rounded-full text-xs font-bold border capitalize whitespace-nowrap",
+        config.style,
+        className
+      )}
+    >
+      {config.label}
     </span>
   );
-};
+}

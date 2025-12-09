@@ -9,7 +9,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
-  isAdmin: boolean; // <--- This was missing before
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -20,23 +20,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log("AuthProvider: Initializing...");
-    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
-      if (currentUser) {
-        // Fetch User Profile (Role)
+      if (currentUser && currentUser.email) {
+        // SECURITY CHECK: Look up the user in the seeded "Roster"
         try {
-          const userRef = doc(db, "users", currentUser.uid);
+          const userRef = doc(db, "users", currentUser.email.toLowerCase());
           const userSnap = await getDoc(userRef);
           
           if (userSnap.exists()) {
+            // User found! Load their Role and Scope
             setProfile({ ...userSnap.data(), uid: currentUser.uid } as UserProfile);
           } else {
-            // Default to Manager if no profile exists yet
-            console.warn("No user profile found. Defaulting to Manager.");
-            setProfile({ uid: currentUser.uid, email: currentUser.email!, role: 'manager' });
+            // User NOT in roster -> Deny Access (or set to Guest)
+            console.warn("User not found in access roster:", currentUser.email);
+            setProfile(null); 
           }
         } catch (err) {
           console.error("Error fetching profile:", err);
@@ -60,7 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-canvas">
         <div className="text-text-secondary font-medium animate-pulse">
-          Verifying Clearance Level...
+          Verifying Access Clearance...
         </div>
       </div>
     );
@@ -72,8 +71,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       profile, 
       loading, 
       logout,
-      // Logic: You are an admin if your Firestore profile says 'admin'
-      isAdmin: profile?.role === 'admin' 
+      // Helper: Simple boolean to hide/show UI elements
+      isAdmin: profile?.role === 'admin'
     }}>
       {children}
     </AuthContext.Provider>

@@ -63,6 +63,10 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // --- 1. FILTERING ENGINE ---
   const filteredData = useMemo(() => {
     return data.filter(item => {
+      // Default Filter: Hide "No Elevators" unless explicitly asked for (via future toggle)
+      if (item.status === 'no_elevators') return false;
+
+      // Check every active filter
       return Object.entries(activeFilters).every(([key, selectedValues]) => {
         if (selectedValues.length === 0) return true;
         const itemValue = String(getValue(item, key));

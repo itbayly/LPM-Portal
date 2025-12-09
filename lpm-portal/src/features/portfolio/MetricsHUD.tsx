@@ -13,9 +13,9 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
   const total = properties.length;
   const active = properties.filter(p => p.status === 'active').length;
   
-  // "Action Required" = Critical + Missing Data + Review (Warning)
+  // "Action Required" = Critical + Missing Data + Review + Pending RPM + No Contract
   const actionRequired = properties.filter(p => 
-    ['critical', 'missing_data', 'warning'].includes(p.status)
+    ['critical', 'missing_data', 'warning', 'pending_rpm_review', 'no_service_contract'].includes(p.status)
   ).length;
 
   const KPI = ({ label, value, icon: Icon, color, filter }: any) => {

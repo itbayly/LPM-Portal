@@ -3,77 +3,186 @@ import {
   collection, 
   onSnapshot, 
   doc, 
-  updateDoc, 
   writeBatch,
   query,
-  orderBy 
+  orderBy,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { generateMockProperties } from '../lib/mockData';
-import type { Property } from '../dataModel';
+import { useAuth } from '../features/auth/AuthContext';
+import { REAL_PROPERTIES, REAL_USERS } from '../lib/realData';
+import type { Property, UserProfile } from '../dataModel';
 
 export function useProperties() {
+  const { user, profile } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Real-time Subscription
   useEffect(() => {
-    const q = query(collection(db, "properties"), orderBy("name"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const liveData: Property[] = [];
-      snapshot.forEach((doc) => {
-        liveData.push({ ...doc.data(), id: doc.id } as Property);
-      });
-      setProperties(liveData);
+    if (!user || !profile) {
+      setProperties([]);
       setLoading(false);
-    }, (err) => {
-      console.error("Firestore Error:", err);
-      setError("Failed to connect to the National Grid.");
-      setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Update Function (Write to DB)
-  const updateProperty = async (id: string, data: Partial<Property>) => {
     try {
-      const ref = doc(db, "properties", id);
-      await updateDoc(ref, data);
+      let q = query(collection(db, "properties"), orderBy("name"));
+
+      switch (profile.role) {
+        case 'admin':
+        case 'executive':
+          break;
+        case 'area_vp':
+          if (profile.scope?.value) {
+            const op = Array.isArray(profile.scope.value) ? 'in' : '==';
+            q = query(collection(db, "properties"), where("hierarchy.area", op, profile.scope.value));
+          }
+          break;
+        case 'region_vp':
+          if (profile.scope?.value) {
+            const op = Array.isArray(profile.scope.value) ? 'in' : '==';
+            q = query(collection(db, "properties"), where("hierarchy.region", op, profile.scope.value));
+          }
+          break;
+        case 'market_manager':
+          if (profile.scope?.value) {
+            const op = Array.isArray(profile.scope.value) ? 'in' : '==';
+            q = query(collection(db, "properties"), where("hierarchy.market", op, profile.scope.value));
+          }
+          break;
+        case 'regional_pm':
+          q = query(collection(db, "properties"), where("regionalPmEmail", "==", user.email?.toLowerCase()));
+          break;
+        case 'pm':
+          q = query(collection(db, "properties"), where("managerEmail", "==", user.email?.toLowerCase()));
+          break;
+        default:
+          setProperties([]);
+          setLoading(false);
+          return;
+      }
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const liveData: Property[] = [];
+        snapshot.forEach((doc) => {
+          liveData.push({ ...doc.data(), id: doc.id } as Property);
+        });
+        setProperties(liveData);
+        setLoading(false);
+      }, (err) => {
+        console.error("Firestore Permission Error:", err);
+        setError("Access Denied.");
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+
     } catch (err) {
-      console.error("Update Error:", err);
-      alert("Failed to save changes. Check console.");
+      console.error("Query Build Error:", err);
+      setLoading(false);
+    }
+  }, [user, profile]);
+
+  // -- BATCH HELPERS --
+  const batchDelete = async (collectionName: string) => {
+    const q = query(collection(db, collectionName));
+    const snapshot = await getDocs(q);
+    
+    // Firestore batch limit is 500. We chunk it to be safe.
+    const CHUNK_SIZE = 400;
+    const chunks = [];
+    
+    for (let i = 0; i < snapshot.docs.length; i += CHUNK_SIZE) {
+      chunks.push(snapshot.docs.slice(i, i + CHUNK_SIZE));
+    }
+
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
     }
   };
 
-  // 3. Seed Function (One-time Upload)
-  const seedDatabase = async () => {
-    if (!confirm("This will upload 50 mock records to your Firestore Database. Continue?")) return;
-    
+  const ingestProperties = async (newProperties: Property[], derivedUsers: UserProfile[]) => {
     setLoading(true);
-    const batch = writeBatch(db);
-    const mockData = generateMockProperties(50);
-
-    mockData.forEach((prop) => {
-      // Create a reference with a new auto-ID
-      const ref = doc(collection(db, "properties"));
-      // Remove the mock ID so Firestore generates a real one, or use the mock ID
-      const { id, ...data } = prop; 
-      batch.set(ref, data);
-    });
-
     try {
+      const batch = writeBatch(db);
+      newProperties.forEach(prop => {
+        const ref = doc(db, "properties", prop.id);
+        batch.set(ref, prop);
+      });
+      derivedUsers.forEach(user => {
+        const ref = doc(db, "users", user.email);
+        batch.set(ref, user, { merge: true });
+      });
       await batch.commit();
-      alert("Database successfully seeded!");
+      alert(`Success! Ingested ${newProperties.length} properties.`);
     } catch (err) {
-      console.error("Seeding Error:", err);
-      alert("Failed to seed database.");
+      console.error("Ingestion Error:", err);
+      alert("Failed to upload data.");
     } finally {
       setLoading(false);
     }
   };
 
-  return { properties, loading, error, updateProperty, seedDatabase };
+  const ingestUsers = async (newUsers: UserProfile[]) => {
+    setLoading(true);
+    try {
+      const batch = writeBatch(db);
+      newUsers.forEach(user => {
+        const ref = doc(db, "users", user.email);
+        batch.set(ref, user);
+      });
+      await batch.commit();
+      alert(`Success! Updated ${newUsers.length} users.`);
+    } catch (err) {
+      console.error("User Ingestion Error:", err);
+      alert("Failed to upload users.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const seedDatabase = async () => {
+    if (!confirm(`This will upload ${REAL_PROPERTIES.length} properties and ${REAL_USERS.length} users. Continue?`)) return;
+    setLoading(true);
+    try {
+      const batch = writeBatch(db);
+      REAL_PROPERTIES.forEach((prop) => {
+        const ref = doc(db, "properties", prop.id); 
+        batch.set(ref, prop);
+      });
+      REAL_USERS.forEach((user) => {
+        const ref = doc(db, "users", user.email.toLowerCase());
+        batch.set(ref, { ...user, email: user.email.toLowerCase() });
+      });
+      await batch.commit();
+      alert("Ingestion Complete!");
+    } catch (err) { console.error(err); } 
+    finally { setLoading(false); }
+  };
+
+  const clearDatabase = async () => {
+    if (!confirm("⚠️ DANGER: This will delete ALL Properties AND Users. Are you sure?")) return;
+    setLoading(true);
+    try {
+      await batchDelete("properties");
+      await batchDelete("users");
+      alert("Database Nuked.");
+    } catch (err) {
+      console.error("Clear Error:", err);
+      alert("Failed to clear database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProperty = async (id: string, data: Partial<Property>) => {
+    const ref = doc(db, "properties", id);
+    await writeBatch(db).update(ref, data).commit();
+  };
+
+  return { properties, loading, error, updateProperty, seedDatabase, clearDatabase, ingestProperties, ingestUsers };
 }
