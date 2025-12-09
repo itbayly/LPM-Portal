@@ -33,13 +33,8 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
   const [emailCopied, setEmailCopied] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
   
-  // UI State for Step 4 (Vendor Edit)
   const [isEditingVendor, setIsEditingVendor] = useState(false);
-
-  // Checklist State
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
-
-  // Contact State (Step 8)
   const [tempContact, setTempContact] = useState<Partial<Contact>>({ name: '', role: '', phone: '', email: '' });
   const [isAddingContact, setIsAddingContact] = useState(false);
 
@@ -86,7 +81,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     calculatedEnd: "",
     overrideEndDate: false,
 
-    // Step 7: Cancellation (Defaults to empty string for "blank")
+    // Step 7: Cancellation
     noticeDaysMin: "" as string | number,
     noticeDaysMax: "" as string | number,
     hasPenalty: !!property.earlyTerminationPenalty,
@@ -114,32 +109,26 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     }
   }, [isOpen, property]);
 
-  // -- DATE CALCULATOR (Step 6) --
+  // -- DATE CALCULATOR --
   useEffect(() => {
     if (formData.contractStart && !formData.overrideEndDate) {
       const start = new Date(formData.contractStart);
       if (!isNaN(start.getTime())) {
         let end = new Date(start);
         
-        // 1. Add Initial Term
         if (formData.initialTermUnit === "Years") {
           end.setFullYear(end.getFullYear() + Number(formData.initialTermNum));
         } else {
           end.setMonth(end.getMonth() + Number(formData.initialTermNum));
         }
 
-        // 2. Subtract 1 Day (Coverage Logic: Jan 1 -> Dec 31)
         end.setDate(end.getDate() - 1);
 
-        // 3. Project Forward if Expired (and Auto-Renews is TRUE)
         if (formData.autoRenews) {
           const now = new Date();
           let safety = 0;
-          // While end date is in the past, keep adding renewal terms
           while (end < now && safety < 50) {
-             // Add Renewal Term
-             const currentEnd = new Date(end); // Snapshot for accurate addition
-             // Add 1 day back to simplify month math, then subtract again
+             const currentEnd = new Date(end); 
              currentEnd.setDate(currentEnd.getDate() + 1); 
              
              if (formData.renewalTermUnit === "Years") {
@@ -148,7 +137,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
                currentEnd.setMonth(currentEnd.getMonth() + Number(formData.renewalTermNum));
              }
              
-             currentEnd.setDate(currentEnd.getDate() - 1); // Coverage logic again
+             currentEnd.setDate(currentEnd.getDate() - 1); 
              end = currentEnd;
              safety++;
           }
@@ -157,7 +146,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
         setFormData(prev => ({ 
           ...prev, 
           calculatedEnd: end.toISOString().split('T')[0],
-          contractEnd: end.toISOString().split('T')[0] // Auto-set display value
+          contractEnd: end.toISOString().split('T')[0] 
         }));
       }
     }
@@ -167,7 +156,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     formData.initialTermUnit, 
     formData.renewalTermNum, 
     formData.renewalTermUnit,
-    formData.autoRenews, // Added dependency
+    formData.autoRenews,
     formData.overrideEndDate
   ]);
 
@@ -233,21 +222,36 @@ ${userName}`;
     }));
   };
 
-  // -- NAVIGATION LOGIC --
+  // -- LOGIC GATES (Restored) --
+
+  const handleNoElevators = () => {
+    if(confirm("Confirming: This property has NO elevators? This will clear existing vendor data.")) {
+      onComplete({ status: 'no_elevators', clearData: true });
+    }
+  };
+
+  const handleNoProvider = () => {
+    alert("This property will be flagged for Regional PM review.");
+    onComplete({ status: 'pending_review' });
+  };
+
+  const handleEmailSentExit = () => {
+    alert("System updated: We will remind you to check for the contract again in 7 days.");
+    onClose();
+  };
+
+  // -- NAVIGATION --
 
   const handleNext = () => {
     // STEP 1: No Elevators -> Exit
     if (step === 1 && formData.hasElevators === false) {
-      if(confirm("Confirming: This property has NO elevators? This will clear existing vendor data.")) {
-        onComplete({ status: 'no_elevators', clearData: true });
-      }
+      handleNoElevators();
       return;
     }
 
     // STEP 2: No Provider -> Exit to RPM Review
     if (step === 2 && formData.hasProvider === false) {
-      alert("This property will be flagged for Regional PM review.");
-      onComplete({ status: 'pending_review' });
+      handleNoProvider();
       return;
     }
 
@@ -365,8 +369,8 @@ ${userName}`;
                   Yes
                 </button>
                 <button 
-                  onClick={() => setFormData({...formData, hasProvider: false})}
-                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasProvider === false ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
+                  onClick={handleNoProvider}
+                  className="flex-1 py-4 border-2 rounded-md font-bold transition-all border-border hover:border-orange-300 hover:bg-orange-50 hover:text-orange-800"
                 >
                   No
                 </button>
