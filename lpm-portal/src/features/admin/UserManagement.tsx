@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
-  User, Trash2, Shield, Plus, X, Search, Edit2, Save, 
-  Building, Check, ChevronRight, Phone, Mail, ArrowLeft 
+  User, Trash2, Shield, X, Search, Edit2, Save, 
+  Building, ChevronRight, Phone, Mail, ArrowLeft 
 } from 'lucide-react';
 import { useUsers } from '../../hooks/useUsers';
 import { useProperties } from '../../hooks/useProperties';
