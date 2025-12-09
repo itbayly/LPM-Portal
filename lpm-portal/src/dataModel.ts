@@ -1,11 +1,17 @@
+// --- UPDATED STATUS LIST ---
 export type PropertyStatus = 
-  | 'active' 
-  | 'warning' 
-  | 'critical' 
+  // Action Required
   | 'missing_data' 
+  | 'pending_review' 
+  | 'critical_action_required' 
+  | 'cancellation_window_open' 
+  | 'add_to_msa' 
+  | 'service_contract_needed'
+  // No Action / Informational
+  | 'notice_due_soon' 
   | 'no_elevators' 
-  | 'pending_rpm_review' 
-  | 'no_service_contract';
+  | 'active_contract' 
+  | 'on_national_agreement';
 
 // FILTER TYPES
 export type FilterType = 'all' | 'action_required' | PropertyStatus;
@@ -22,7 +28,7 @@ export type UserRole =
 
 export interface AccessScope {
   type: 'global' | 'area' | 'region' | 'market';
-  value: string | string[]; // e.g. "West"
+  value: string | string[]; 
 }
 
 export interface UserProfile {
@@ -40,7 +46,6 @@ export interface Vendor {
   name: string;
   rating: number; // 1-10 Scale
   currentPrice: number;
-  // NEW: Added Billing Frequency
   billingFrequency?: 'Monthly' | 'Quarterly' | 'Semi-Annual' | 'Annual'; 
   accountNumber: string;
   serviceInstructions: string;
@@ -78,6 +83,9 @@ export interface Property {
   unitCount: number;
   status: PropertyStatus;
   
+  // NEW: To track how long a property has been in a status
+  statusUpdatedAt?: string; // ISO Date String
+
   // Geographic Hierarchy
   hierarchy: PropertyHierarchy;
 
@@ -112,7 +120,6 @@ export interface Property {
   renewalTerm: string;
   cancellationWindow: string; 
   
-  // NEW: Termination Penalty
   earlyTerminationPenalty?: string;
 
   autoRenews: boolean;
