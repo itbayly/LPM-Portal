@@ -43,7 +43,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     vendorOther: "",
     unitCount: property.unitCount || 1,
     ratingRaw: property.vendor?.rating || 0,
-    // UPDATED: National Contract State
     onNationalContract: property.onNationalContract || false,
 
     // Screen 4: Billing
@@ -141,7 +140,8 @@ ${profile?.name || "Property Manager"}`;
 
   const handleNoProvider = () => {
     alert("This property will be flagged for Regional PM review.");
-    onComplete({ status: 'pending_rpm_review' });
+    // UPDATED: New Status Key
+    onComplete({ status: 'pending_review' });
   };
 
   const handleEmailSentExit = () => {
@@ -151,7 +151,12 @@ ${profile?.name || "Property Manager"}`;
 
   const handleNext = () => {
     if (step === 8) {
-      onComplete({ ...formData, status: 'active' });
+      // UPDATED: Logic to pick correct success status
+      let finalStatus = 'active_contract';
+      if (formData.vendorName === 'Schindler' && formData.onNationalContract) {
+        finalStatus = 'on_national_agreement';
+      }
+      onComplete({ ...formData, status: finalStatus });
       return;
     }
     setStep(s => s + 1);
@@ -281,7 +286,6 @@ ${profile?.name || "Property Manager"}`;
                 )}
               </div>
 
-              {/* UPDATED: National Agreement Checkbox */}
               {formData.vendorName === 'Schindler' && (
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-3">
                   <input 
@@ -504,15 +508,6 @@ ${profile?.name || "Property Manager"}`;
                   <span className="block text-xs font-bold text-text-secondary uppercase">Cancellation</span>
                   <span className="block font-medium">{formData.noticeDaysMax}-{formData.noticeDaysMin} Days Notice</span>
                 </div>
-                {/* UPDATED: Confirm view */}
-                {formData.vendorName === 'Schindler' && (
-                  <div className="col-span-2">
-                    <span className="block text-xs font-bold text-text-secondary uppercase">National Agreement</span>
-                    <span className={`block font-medium ${formData.onNationalContract ? "text-green-600" : "text-slate-600"}`}>
-                      {formData.onNationalContract ? "Yes" : "No"}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           )}
