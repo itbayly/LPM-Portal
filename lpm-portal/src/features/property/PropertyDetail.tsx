@@ -7,7 +7,7 @@ import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
 import VerificationWizard from '../verification/VerificationWizard';
 import { useAuth } from '../auth/AuthContext';
-import { cn } from '../../lib/utils'; // <-- ADDED THIS IMPORT
+import { cn } from '../../lib/utils';
 import type { Property, Contact } from '../../dataModel';
 
 interface PropertyDetailProps {
@@ -121,6 +121,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
 
   const vendor = property.vendor || {};
   const manager = property.manager || {};
+  const regionalPm = property.regionalPm || {}; // NEW: Access Regional PM
   const contacts = property.contacts || [];
   const price = typeof vendor.currentPrice === 'number' ? vendor.currentPrice : 0;
 
@@ -349,7 +350,9 @@ LPM Property Management
         <div className="w-[360px] flex-shrink-0 overflow-y-auto space-y-lg pr-2 pb-10">
           <div className="bg-surface rounded-md shadow-lvl1 p-lg border border-border">
             <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-md">LPM Responsibility</h3>
-            <div className="flex items-start gap-md">
+            
+            {/* Property Manager Info */}
+            <div className="flex items-start gap-md mb-4">
               <div className="p-2 bg-slate-100 rounded-full">
                 <User className="w-5 h-5 text-slate-500" />
               </div>
@@ -366,6 +369,26 @@ LPM Property Management
                 </div>
               </div>
             </div>
+
+            {/* Regional PM Info - NEW SECTION */}
+            <div className="flex items-start gap-md pt-4 border-t border-border">
+              <div className="p-2 bg-slate-100 rounded-full">
+                <User className="w-5 h-5 text-slate-500" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-text-primary">{regionalPm.name || "Unassigned"}</p>
+                <p className="text-xs text-text-secondary">Regional Property Manager</p>
+                <div className="mt-sm space-y-xs">
+                  <div className="flex items-center gap-xs text-xs text-brand">
+                    <Mail className="w-3 h-3" /> {regionalPm.email || "-"}
+                  </div>
+                  <div className="flex items-center gap-xs text-xs text-text-secondary">
+                    <Phone className="w-3 h-3" /> {regionalPm.phone || "-"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div className="bg-surface rounded-md shadow-lvl1 p-lg border border-border">
@@ -374,13 +397,12 @@ LPM Property Management
             <div className="mb-lg">
               <div className="flex items-start justify-between">
                 <span className="text-lg font-bold text-brand block">{vendor.name || "No Vendor Selected"}</span>
-                {/* National Contract Pill */}
                 {vendor.name === 'Schindler' && (
                   <span className={cn(
                     "text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide",
                     property.onNationalContract ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"
                   )}>
-                    {property.onNationalContract ? "National Agreement" : "Not on National Agreement"}
+                    {property.onNationalContract ? "National Agreement" : "Not on Agreement"}
                   </span>
                 )}
               </div>
@@ -543,10 +565,8 @@ LPM Property Management
                  <button className="text-xs font-bold text-brand uppercase tracking-wide hover:underline">+ Upload New Document</button>
               </div>
             </div>
-
           </div>
         </div>
-
       </div>
 
       {isWizardOpen && (
