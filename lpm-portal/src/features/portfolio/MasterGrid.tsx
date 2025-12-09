@@ -27,6 +27,25 @@ type SortState = {
   direction: 'asc' | 'desc';
 };
 
+// --- STATUS DISPLAY MAPPING ---
+const STATUS_LABELS: Record<string, string> = {
+  'active': 'Active',
+  'active_contract': 'Active Contract',
+  'warning': 'Review Needed',
+  'notice_due_soon': 'Notice Due Soon',
+  'critical': 'Critical',
+  'critical_action_required': 'Critical Action Required',
+  'missing_data': 'Missing Data',
+  'no_elevators': 'No Elevators',
+  'pending_review': 'Pending Review',
+  'pending_rpm_review': 'Pending Review',
+  'no_service_contract': 'No Contract',
+  'service_contract_needed': 'Service Contract Needed',
+  'cancellation_window_open': 'Cancellation Window Open',
+  'add_to_msa': 'Add to MSA',
+  'on_national_agreement': 'On National Agreement'
+};
+
 // --- HELPER FUNCTIONS ---
 
 const getValue = (item: Property, path: string) => {
@@ -44,6 +63,13 @@ const getUniqueValues = (data: Property[], key: string) => {
     if (val !== undefined && val !== null) values.add(String(val));
   });
   return Array.from(values).sort();
+};
+
+const formatValue = (key: string, value: string) => {
+  if (key === 'status') {
+    return STATUS_LABELS[value] || value.replace(/_/g, ' ');
+  }
+  return value;
 };
 
 export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
@@ -120,7 +146,12 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     const [selected, setSelected] = useState<string[]>(initialSelection);
     const [search, setSearch] = useState('');
 
-    const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
+    const filteredOptions = options.filter(opt => {
+      // Search against the display value, not the raw code
+      const displayVal = formatValue(columnKey, opt).toLowerCase();
+      return displayVal.includes(search.toLowerCase());
+    });
+    
     const isAllSelected = filteredOptions.every(opt => selected.includes(opt));
 
     const toggleOption = (opt: string) => {
@@ -198,7 +229,8 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
                 checked={selected.includes(opt)}
                 onChange={() => toggleOption(opt)}
               />
-              <span className="text-xs truncate">{opt}</span>
+              {/* UPDATED: Use formatter here */}
+              <span className="text-xs truncate">{formatValue(columnKey, opt)}</span>
             </label>
           ))}
           
