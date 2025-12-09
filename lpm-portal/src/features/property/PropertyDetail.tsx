@@ -201,7 +201,6 @@ Please confirm receipt of this cancellation notice in writing.
 
 Sincerely,
 ${profile?.name || "Property Manager"}
-LPM Property Management
 --------------------------------------------------
 
 [Note: Attach the contract PDF if available]
