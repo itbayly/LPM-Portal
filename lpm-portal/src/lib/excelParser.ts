@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Property, PropertyStatus, UserProfile, UserRole, AccessScope, Contact } from '../dataModel';
+import type { Property, UserProfile, UserRole, AccessScope, Contact } from '../dataModel';
 
 // --- TEMPLATES ---
 const PROPERTY_HEADERS = [
