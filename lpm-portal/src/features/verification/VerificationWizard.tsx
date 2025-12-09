@@ -179,8 +179,7 @@ Could you please provide the following information for ${property.name} (${addre
 3. Billing Frequency
 4. Current contract end date
 5. Our Account/Contract Number and Bill To Number
-
-Please also confirm that you are still our assigned point of contact.
+6. Confirm our assigned point of contact
 
 Thanks,
 ${userName}`;
@@ -222,7 +221,7 @@ ${userName}`;
     }));
   };
 
-  // -- LOGIC GATES (Restored) --
+  // -- LOGIC GATES --
 
   const handleNoElevators = () => {
     if(confirm("Confirming: This property has NO elevators? This will clear existing vendor data.")) {
@@ -233,11 +232,6 @@ ${userName}`;
   const handleNoProvider = () => {
     alert("This property will be flagged for Regional PM review.");
     onComplete({ status: 'pending_review' });
-  };
-
-  const handleEmailSentExit = () => {
-    alert("System updated: We will remind you to check for the contract again in 7 days.");
-    onClose();
   };
 
   // -- NAVIGATION --
