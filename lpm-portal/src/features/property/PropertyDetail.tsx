@@ -380,7 +380,7 @@ LPM Property Management
                     "text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide",
                     property.onNationalContract ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"
                   )}>
-                    {property.onNationalContract ? "National Agreement" : "Not on Agreement"}
+                    {property.onNationalContract ? "National Agreement" : "Not on National Agreement"}
                   </span>
                 )}
               </div>
