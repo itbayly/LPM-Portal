@@ -11,7 +11,13 @@ export type PropertyStatus =
   | 'notice_due_soon' 
   | 'no_elevators' 
   | 'active_contract' 
-  | 'on_national_agreement';
+  | 'on_national_agreement'
+  // Legacy/Fallbacks (keep these temporarily to prevent crash during migration)
+  | 'active'
+  | 'warning'
+  | 'critical'
+  | 'pending_rpm_review'
+  | 'no_service_contract';
 
 // FILTER TYPES
 export type FilterType = 'all' | 'action_required' | PropertyStatus;
