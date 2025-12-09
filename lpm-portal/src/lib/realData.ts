@@ -1,4 +1,4 @@
-import type { Property, UserProfile, UserRole, AccessScope } from '../dataModel';
+import type { Property, UserProfile } from '../dataModel';
 
 // --- ROSTER DATA (Generated from User List.xlsx) ---
 export const REAL_USERS: UserProfile[] = [
