@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  X, ChevronRight, ChevronLeft, UploadCloud, Calendar, DollarSign, 
+  X, ChevronRight, ChevronLeft, UploadCloud, DollarSign, 
   FileText, AlertCircle, Mail, Copy, Check 
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
