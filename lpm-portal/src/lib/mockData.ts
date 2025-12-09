@@ -37,45 +37,70 @@ export const generateMockProperties = (count: number): Property[] => {
       { id: `c-${i}-2`, name: "Sarah Connor", role: "Regional PM", email: "rpm@lpm.com", phone: "555-0102" }
     ];
 
+    const managerEmail = `pm.${i}@lpm.com`;
+    const rpmEmail = `rpm.${i % 3}@lpm.com`;
+
     return {
       id: `prop-${i + 1}`,
       name: `LPM Building ${1000 + i}`,
+      entityName: `LPM Holdings ${1000 + i} LLC`,
       address: `${100 + i} Market Street`,
       city: location.city,
       state: location.state,
       zip: '10001',
+      locationPhone: '555-0199',
       unitCount: Math.floor(Math.random() * 20) + 1,
       status: randomStatus,
       
-      // NEW: Hierarchy Data
+      // Hierarchy Data
       hierarchy: {
         area: location.area,
         region: location.region,
         market: location.market
       },
 
-      // NEW: Security Assignment IDs (We use mock IDs for now)
-      managerId: `user-pm-${i % 5}`, // Rotates between 5 mock PMs
-      regionalPmId: `user-rpm-${i % 3}`, // Rotates between 3 mock RPMs
+      // Identifiers
+      billTo: `BILL-${1000 + i}`,
+      buildingId: `BLDG-${5000 + i}`,
+
+      // Assignment IDs
+      managerEmail: managerEmail,
+      regionalPmEmail: rpmEmail,
 
       manager: {
         name: "Alex Rivera",
-        email: `pm.${i}@lpm.com`,
+        email: managerEmail,
         phone: "(555) 123-4567"
+      },
+
+      regionalPm: {
+        name: "Sarah Connor",
+        email: rpmEmail,
+        phone: "(555) 987-6543"
       },
 
       vendor: {
         name: randomVendor,
         rating: Math.floor(Math.random() * 10) + 1,
         currentPrice: Math.floor(Math.random() * 5000) + 1000,
+        billingFrequency: 'Monthly',
         accountNumber: `VEND-${10000 + i}`,
         serviceInstructions: "Check in with security at front desk."
       },
 
+      accountManager: {
+        name: "Vendor Rep",
+        phone: "555-0000",
+        email: "rep@vendor.com"
+      },
+
       contractStartDate: startDate.toISOString().split('T')[0],
       contractEndDate: endDate.toISOString().split('T')[0],
+      initialTerm: "5 Years",
+      renewalTerm: "5 Years",
       cancellationWindow: '90-120 Days',
       autoRenews: true,
+      onNationalContract: false,
       contacts: contacts
     };
   });
