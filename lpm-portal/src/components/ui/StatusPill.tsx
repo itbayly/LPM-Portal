@@ -1,95 +1,60 @@
-import type { Property, PropertyStatus } from '../dataModel';
+import { cn } from '../../lib/utils';
+import type { PropertyStatus } from '../../dataModel'; // <-- The fix is here (../../)
 
-// Helper to parse dates safely
-const parseDate = (d: string) => {
-  if (!d) return null;
-  const date = new Date(d);
-  return isNaN(date.getTime()) ? null : date;
-};
+interface StatusPillProps {
+  status: PropertyStatus;
+  className?: string;
+}
 
-// Helper to get days difference
-const daysBetween = (d1: Date, d2: Date) => {
-  const oneDay = 24 * 60 * 60 * 1000;
-  return Math.round(Math.abs((d1.getTime() - d2.getTime()) / oneDay));
-};
-
-export function calculatePropertyStatus(property: Property): PropertyStatus {
-  const today = new Date();
-
-  // 1. HARD OVERRIDES (Manual/Workflow Flags)
-  if (property.status === 'no_elevators') return 'no_elevators';
-  if (property.status === 'service_contract_needed') return 'service_contract_needed';
+export function StatusPill({ status, className }: StatusPillProps) {
   
-  // Handle Legacy mappings
-  if (property.status === 'no_service_contract') return 'service_contract_needed';
+  const getStatusConfig = (s: PropertyStatus) => {
+    switch (s) {
+      // --- ACTION REQUIRED ---
+      case 'missing_data':
+        return { label: 'Missing Data', style: 'bg-slate-100 text-slate-700 border-slate-300' };
+      case 'pending_review':
+      case 'pending_rpm_review': // Legacy handle
+        return { label: 'Pending Review', style: 'bg-amber-100 text-amber-700 border-amber-200' };
+      case 'critical_action_required':
+      case 'critical': // Legacy handle
+        return { label: 'Critical Action Required', style: 'bg-red-100 text-red-700 border-red-200 font-bold' };
+      case 'cancellation_window_open':
+        return { label: 'Cancellation Window Open', style: 'bg-red-50 text-red-600 border-red-200 border-dashed animate-pulse' };
+      case 'add_to_msa':
+        return { label: 'Add to MSA', style: 'bg-indigo-100 text-indigo-700 border-indigo-200' };
+      case 'service_contract_needed':
+      case 'no_service_contract': // Legacy handle
+        return { label: 'Service Contract Needed', style: 'bg-rose-100 text-rose-700 border-rose-200' };
 
-  if (property.status === 'pending_review' || property.status === 'pending_rpm_review') {
-    // CRITICAL CHECK: Stuck in pending for 30+ days?
-    if (property.statusUpdatedAt) {
-      const lastUpdate = new Date(property.statusUpdatedAt);
-      if (daysBetween(today, lastUpdate) > 30) return 'critical_action_required';
+      // --- NO ACTION / INFO ---
+      case 'notice_due_soon':
+      case 'warning': // Legacy handle
+        return { label: 'Notice Due Soon', style: 'bg-yellow-50 text-yellow-600 border-yellow-200' };
+      case 'active_contract':
+      case 'active': // Legacy handle
+        return { label: 'Active Contract', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+      case 'on_national_agreement':
+        return { label: 'On National Agreement', style: 'bg-green-100 text-green-700 border-green-200' };
+      case 'no_elevators':
+        return { label: 'No Elevators', style: 'bg-slate-50 text-slate-400 border-slate-200' };
+        
+      default:
+        return { label: 'Unknown', style: 'bg-gray-100 text-gray-500' };
     }
-    return 'pending_review';
-  }
+  };
 
-  // 2. MISSING DATA CHECK
-  const isMissingData = 
-    !property.vendor?.name || 
-    !property.unitCount || 
-    !property.vendor?.currentPrice || 
-    !property.contractEndDate || 
-    !property.cancellationWindow;
+  const config = getStatusConfig(status);
 
-  if (isMissingData) {
-    // CRITICAL CHECK: Stuck in missing data for 30+ days?
-    if (property.statusUpdatedAt) {
-      const lastUpdate = new Date(property.statusUpdatedAt);
-      if (daysBetween(today, lastUpdate) > 30) return 'critical_action_required';
-    }
-    return 'missing_data';
-  }
-
-  // --- FROM HERE DOWN, DATA IS ASSUMED COMPLETE ---
-
-  // 3. DATE LOGIC (Cancellation Window)
-  const endDate = parseDate(property.contractEndDate);
-  const nums = property.cancellationWindow.match(/\d+/g)?.map(Number);
-
-  if (endDate && nums && nums.length > 0) {
-    // Calculate Window Dates
-    const maxDays = Math.max(...nums); // Start of Window (e.g. 120 days before end)
-    const minDays = Math.min(...nums); // End of Window (e.g. 90 days before end)
-    
-    const windowOpenDate = new Date(endDate);
-    windowOpenDate.setDate(endDate.getDate() - maxDays);
-    
-    const windowCloseDate = new Date(endDate);
-    windowCloseDate.setDate(endDate.getDate() - minDays);
-
-    // CRITICAL: < 15 days left in window
-    const daysLeftInWindow = (windowCloseDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
-    if (today >= windowOpenDate && today <= windowCloseDate && daysLeftInWindow <= 15) {
-      return 'critical_action_required';
-    }
-
-    // WINDOW OPEN
-    if (today >= windowOpenDate && today <= windowCloseDate) {
-      return 'cancellation_window_open';
-    }
-
-    // NOTICE DUE SOON (30 days before window opens)
-    const warningDate = new Date(windowOpenDate);
-    warningDate.setDate(windowOpenDate.getDate() - 30);
-    if (today >= warningDate && today < windowOpenDate) {
-      return 'notice_due_soon';
-    }
-  }
-
-  // 4. VENDOR LOGIC
-  if (property.vendor.name === 'Schindler') {
-    return property.onNationalContract ? 'on_national_agreement' : 'add_to_msa';
-  }
-
-  // 5. DEFAULT
-  return 'active_contract';
+  return (
+    <span 
+      className={cn(
+        "px-2.5 py-0.5 rounded-full text-xs font-bold border capitalize whitespace-nowrap",
+        config.style,
+        className
+      )}
+    >
+      {config.label}
+    </span>
+  );
 }
