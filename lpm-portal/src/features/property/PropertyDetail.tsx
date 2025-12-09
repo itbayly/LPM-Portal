@@ -34,7 +34,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
   const { profile } = useAuth();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
-  // -- HANDLERS --
   const updateVendor = (field: string, value: any) => {
     onUpdate(property.id, { vendor: { ...property.vendor, [field]: value } });
   };
@@ -100,6 +99,8 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       cancellationWindow: noticeString,
       initialTerm: `${data.initialTermNum} ${data.initialTermUnit}`,
       renewalTerm: `${data.renewalTermNum} ${data.renewalTermUnit}`,
+      // UPDATED: Saving National Contract Status
+      onNationalContract: data.onNationalContract,
       vendor: {
         ...property.vendor,
         name: data.vendorName,
@@ -171,8 +172,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
     return result;
   }, [property.contractEndDate, property.cancellationWindow]);
 
-  // -- CALENDAR REMINDER LOGIC --
-  
   const getEventDetails = () => {
     const accountManagerName = property.accountManager?.name || "[Account Manager Name]";
     const accountManagerEmail = property.accountManager?.email || "[Account Manager Email]";
@@ -200,6 +199,7 @@ Please confirm receipt of this cancellation notice in writing.
 
 Sincerely,
 ${profile?.name || "Property Manager"}
+LPM Property Management
 --------------------------------------------------
 
 [Note: Attach the contract PDF if available]
@@ -220,8 +220,6 @@ ${profile?.name || "Property Manager"}
   const handleDownloadICS = () => {
     if (!startWindowDate) return;
     const { subject, body } = getEventDetails();
-    
-    // Create valid ICS formatted date (YYYYMMDD)
     const startDate = startWindowDate.toISOString().replace(/-|:|\.\d+/g, "").substring(0, 8);
     const endDate = new Date(startWindowDate.getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d+/g, "").substring(0, 8);
 
@@ -229,10 +227,10 @@ ${profile?.name || "Property Manager"}
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'BEGIN:VEVENT',
-      `DTSTART;VALUE=DATE:${startDate}`, // All day event for safety/visibility
+      `DTSTART;VALUE=DATE:${startDate}`,
       `DTEND;VALUE=DATE:${endDate}`,
       `SUMMARY:${subject}`,
-      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`, // Escape newlines for ICS format
+      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`,
       'END:VEVENT',
       'END:VCALENDAR'
     ].join('\r\n');
@@ -246,7 +244,6 @@ ${profile?.name || "Property Manager"}
     document.body.removeChild(link);
   };
 
-  // -- RENDER: NO ELEVATORS VIEW --
   if (property.status === 'no_elevators') {
     return (
       <div className="flex flex-col h-full bg-canvas p-6">
@@ -372,10 +369,23 @@ ${profile?.name || "Property Manager"}
 
           <div className="bg-surface rounded-md shadow-lvl1 p-lg border border-border">
             <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-md">Current Vendor</h3>
+            
             <div className="mb-lg">
-              <span className="text-lg font-bold text-brand block mb-2">{vendor.name || "No Vendor Selected"}</span>
+              <div className="flex items-start justify-between">
+                <span className="text-lg font-bold text-brand block">{vendor.name || "No Vendor Selected"}</span>
+                {/* UPDATED: National Contract Pill */}
+                {vendor.name === 'Schindler' && (
+                  <span className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide",
+                    property.onNationalContract ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"
+                  )}>
+                    {property.onNationalContract ? "National Agreement" : "Not on Agreement"}
+                  </span>
+                )}
+              </div>
               <StarRating value={vendor.rating || 0} onChange={(val) => updateVendor('rating', val)} />
             </div>
+
             <div className="space-y-md">
               <div>
                 <label className="text-[11px] font-semibold text-text-secondary uppercase block mb-xs">Account Number</label>
@@ -399,18 +409,25 @@ ${profile?.name || "Property Manager"}
 
         <div className="flex-1 overflow-y-auto pr-2 pb-2xl">
           <div className="bg-surface rounded-md shadow-lvl1 border border-border">
+            
+            {/* Financials Section */}
             <div className="p-xl border-b border-border">
               <h2 className="text-lg font-bold text-text-primary mb-lg flex items-center gap-sm">
                 <DollarSign className="w-5 h-5 text-brand" /> Financial Overview
               </h2>
+              
               <div className="grid grid-cols-2 gap-x-xl gap-y-lg">
                 <div>
                   <label className="text-[11px] font-bold text-text-secondary uppercase block">Monthly Base Price</label>
-                  <span className="text-2xl font-mono text-text-primary block mt-1">${price.toLocaleString()}</span>
+                  <span className="text-2xl font-mono text-text-primary block mt-1">
+                    ${price.toLocaleString()}
+                  </span>
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-text-secondary uppercase block">Annual Spend</label>
-                  <span className="text-xl font-mono text-text-secondary block mt-1">${(price * 12).toLocaleString()}</span>
+                  <span className="text-xl font-mono text-text-secondary block mt-1">
+                    ${(price * 12).toLocaleString()}
+                  </span>
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-text-secondary uppercase block">Contract Start</label>
@@ -428,7 +445,6 @@ ${profile?.name || "Property Manager"}
                 <h2 className="text-lg font-bold text-text-primary flex items-center gap-sm">
                   <AlertTriangle className="w-5 h-5 text-status-warning" /> Cancellation Intelligence
                 </h2>
-                
                 {startWindowDate && (
                   <div className="flex gap-2">
                     <button 
@@ -526,8 +542,10 @@ ${profile?.name || "Property Manager"}
                  <button className="text-xs font-bold text-brand uppercase tracking-wide hover:underline">+ Upload New Document</button>
               </div>
             </div>
+
           </div>
         </div>
+
       </div>
 
       {isWizardOpen && (
@@ -538,6 +556,7 @@ ${profile?.name || "Property Manager"}
           onComplete={handleVerificationComplete}
         />
       )}
+
     </div>
   );
 }

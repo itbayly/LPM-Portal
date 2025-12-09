@@ -23,7 +23,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
   const [step, setStep] = useState(1);
   const [emailCopied, setEmailCopied] = useState(false);
 
-  // Helper to parse "5 Years" or "5" into number/unit
   const parseTerm = (val: string | undefined) => {
     if (!val) return { num: 5, unit: "Years" };
     const num = parseInt(val);
@@ -31,7 +30,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     return { num: isNaN(num) ? 5 : num, unit };
   };
 
-  // -- FORM STATE --
   const [formData, setFormData] = useState({
     // Screen 1: Triage
     hasElevators: null as boolean | null,
@@ -45,6 +43,8 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     vendorOther: "",
     unitCount: property.unitCount || 1,
     ratingRaw: property.vendor?.rating || 0,
+    // UPDATED: National Contract State
+    onNationalContract: property.onNationalContract || false,
 
     // Screen 4: Billing
     currentPrice: property.vendor?.currentPrice || 0,
@@ -54,7 +54,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     contractStart: property.contractStartDate || "",
     contractEnd: property.contractEndDate || "",
     
-    // Auto-populate split fields
     initialTermNum: parseTerm(property.initialTerm).num,
     initialTermUnit: parseTerm(property.initialTerm).unit,
     renewalTermNum: parseTerm(property.renewalTerm).num,
@@ -73,7 +72,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     files: [] as File[]
   });
 
-  // -- CALCULATORS --
   useEffect(() => {
     if (formData.contractStart) {
       const start = new Date(formData.contractStart);
@@ -102,11 +100,9 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     }
   }, [formData.contractStart, formData.initialTermNum, formData.initialTermUnit, formData.renewalTermNum, formData.renewalTermUnit]);
 
-  // -- HANDLERS --
   const handleCopyEmail = () => {
     const addressString = `${property.address}, ${property.city}, ${property.state} ${property.zip}`;
     
-    // UPDATED: Item 5 now says "Our Account..."
     const text = `Subject: Request for Elevator Service Agreement - ${property.name}
 
 Hi,
@@ -137,7 +133,6 @@ ${profile?.name || "Property Manager"}`;
     }
   };
 
-  // -- LOGIC GATES --
   const handleNoElevators = () => {
     if(confirm("Confirming: This property has NO elevators? This will clear existing vendor data.")) {
       onComplete({ status: 'no_elevators', clearData: true });
@@ -150,7 +145,6 @@ ${profile?.name || "Property Manager"}`;
   };
 
   const handleEmailSentExit = () => {
-    // In a real app, this would write a "snooze" date to the DB
     alert("System updated: We will remind you to check for the contract again in 7 days.");
     onClose();
   };
@@ -286,6 +280,22 @@ ${profile?.name || "Property Manager"}`;
                   />
                 )}
               </div>
+
+              {/* UPDATED: National Agreement Checkbox */}
+              {formData.vendorName === 'Schindler' && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md flex items-start gap-3">
+                  <input 
+                    type="checkbox" 
+                    id="national-check"
+                    className="mt-1 rounded border-blue-300 text-brand focus:ring-brand w-4 h-4"
+                    checked={formData.onNationalContract}
+                    onChange={e => setFormData({...formData, onNationalContract: e.target.checked})}
+                  />
+                  <label htmlFor="national-check" className="text-sm font-medium text-blue-900 cursor-pointer">
+                    Is this contract part of the National Agreement?
+                  </label>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-sm font-bold uppercase text-text-secondary">Number of Elevators</label>
@@ -494,6 +504,15 @@ ${profile?.name || "Property Manager"}`;
                   <span className="block text-xs font-bold text-text-secondary uppercase">Cancellation</span>
                   <span className="block font-medium">{formData.noticeDaysMax}-{formData.noticeDaysMin} Days Notice</span>
                 </div>
+                {/* UPDATED: Confirm view */}
+                {formData.vendorName === 'Schindler' && (
+                  <div className="col-span-2">
+                    <span className="block text-xs font-bold text-text-secondary uppercase">National Agreement</span>
+                    <span className={`block font-medium ${formData.onNationalContract ? "text-green-600" : "text-slate-600"}`}>
+                      {formData.onNationalContract ? "Yes" : "No"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

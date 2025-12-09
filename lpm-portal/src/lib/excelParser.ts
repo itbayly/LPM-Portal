@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Property, UserProfile, UserRole, AccessScope, Contact } from '../dataModel';
+import type { Property, PropertyStatus, UserProfile, UserRole, AccessScope, Contact } from '../dataModel';
 
 // --- TEMPLATES ---
 const PROPERTY_HEADERS = [
@@ -15,7 +15,6 @@ const PROPERTY_HEADERS = [
   "On National Contract"
 ];
 
-// UPDATED: Added "Phone" to the template headers
 const USER_HEADERS = ["Role Level", "Access Scope", "Name", "Email", "Phone"];
 
 // --- HELPERS ---
@@ -87,7 +86,7 @@ export const parseUserFile = async (file: File): Promise<UserProfile[]> => {
           return {
             email: String(row['Email'] || '').toLowerCase().trim(),
             name: row['Name'],
-            phone: String(row['Phone'] || '').trim(), // UPDATED: Now mapping phone
+            phone: String(row['Phone'] || '').trim(), 
             role: role,
             scope: mapScope(role, row['Access Scope'])
           };
@@ -117,29 +116,26 @@ export const parsePropertyFile = async (file: File): Promise<{ properties: Prope
           const getNum = (key: string) => Number(row[key]) || 0;
           const getDate = (key: string) => processDate(row[key]);
 
-          // 1. Extract PM User (with Phone)
           const pmEmail = getVal('PM Email').toLowerCase();
           if (pmEmail) {
             derivedUsersMap.set(pmEmail, {
               email: pmEmail,
               name: getVal('Property Manager') || 'Unknown PM',
-              phone: getVal('PM Phone #'), // UPDATED: Capturing phone
+              phone: getVal('PM Phone #'),
               role: 'pm'
             });
           }
 
-          // 2. Extract RPM User (with Phone)
           const rpmEmail = getVal('RPM Email').toLowerCase();
           if (rpmEmail) {
             derivedUsersMap.set(rpmEmail, {
               email: rpmEmail,
               name: getVal('Regional Property Manager') || 'Unknown RPM',
-              phone: getVal('RPM Phone #'), // UPDATED: Capturing phone
+              phone: getVal('RPM Phone #'),
               role: 'regional_pm'
             });
           }
 
-          // Build Contacts Array
           const contacts: Contact[] = [];
           const amName = getVal('Account Manager Name');
           if (amName) {
@@ -152,12 +148,15 @@ export const parsePropertyFile = async (file: File): Promise<{ properties: Prope
             });
           }
 
-          // Build Notice String Logic
           const nb = getVal('Cancellation Window - Not Before');
           const na = getVal('Cancellation Window - Not After');
           let noticeString = "";
           if (nb && na) noticeString = `${nb} - ${na} Days`;
           else if (na) noticeString = `${na} Days`; 
+
+          // UPDATED: Logic to read "X" as true
+          const rawNational = getVal('On National Contract').toLowerCase();
+          const isOnNational = rawNational === 'x' || rawNational === 'yes' || rawNational === 'true';
 
           return {
             id: getVal('Unique ID') || `gen-${Math.random().toString(36).substr(2, 9)}`,
@@ -204,7 +203,7 @@ export const parsePropertyFile = async (file: File): Promise<{ properties: Prope
             renewalTerm: getVal('Renewal Term'),
             cancellationWindow: noticeString,
             autoRenews: true,
-            onNationalContract: getVal('On National Contract').toLowerCase().includes('yes'),
+            onNationalContract: isOnNational, // Now correctly mapped
             contacts: contacts
           };
         });
