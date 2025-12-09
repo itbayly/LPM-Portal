@@ -121,7 +121,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
 
   const vendor = property.vendor || {};
   const manager = property.manager || {};
-  const regionalPm = property.regionalPm || {}; // NEW: Access Regional PM
+  const regionalPm = property.regionalPm || {}; 
   const contacts = property.contacts || [];
   const price = typeof vendor.currentPrice === 'number' ? vendor.currentPrice : 0;
 
@@ -228,10 +228,10 @@ ${profile?.name || "Property Manager"}
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'BEGIN:VEVENT',
-      `DTSTART;VALUE=DATE:${startDate}`,
+      `DTSTART;VALUE=DATE:${startDate}`, // All day event for safety/visibility
       `DTEND;VALUE=DATE:${endDate}`,
       `SUMMARY:${subject}`,
-      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`,
+      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`, // Escape newlines for ICS format
       'END:VEVENT',
       'END:VCALENDAR'
     ].join('\r\n');
@@ -283,6 +283,15 @@ ${profile?.name || "Property Manager"}
           <ArrowLeft className="w-6 h-6" />
         </button>
         <div>
+          {/* NEW: Company Mapping Breadcrumb */}
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-text-secondary mb-1">
+            <span>{property.hierarchy?.area || "Area"}</span>
+            <span className="text-slate-300">/</span>
+            <span>{property.hierarchy?.region || "Region"}</span>
+            <span className="text-slate-300">/</span>
+            <span>{property.hierarchy?.market || "Market"}</span>
+          </div>
+
           <div className="flex items-center gap-3">
             <h1 className="text-[28px] font-bold text-text-primary leading-tight">{property.name || "Unnamed Property"}</h1>
             <span className="px-2 py-0.5 bg-slate-100 text-text-secondary text-xs font-bold rounded-full border border-border flex items-center gap-1">
