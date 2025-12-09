@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, ChevronRight, ChevronLeft, UploadCloud, DollarSign, 
-  FileText, AlertCircle, Mail, Copy, Check, Plus, Edit2, User, Phone, Trash2
+  FileText, Mail, Copy, Check, Plus, Trash2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StarRating } from '../../components/ui/StarRating';
