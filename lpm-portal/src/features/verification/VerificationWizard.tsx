@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, ChevronRight, ChevronLeft, UploadCloud, DollarSign, 
-  FileText, Mail, Copy, Check, Plus, Trash2
+  FileText, Mail, Copy, Check, Plus, Trash2, Edit2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StarRating } from '../../components/ui/StarRating';
@@ -32,13 +32,14 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
   const [step, setStep] = useState(1);
   const [emailCopied, setEmailCopied] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
-
-  // -- STATE MANAGEMENT --
   
+  // UI State for Step 4 (Vendor Edit)
+  const [isEditingVendor, setIsEditingVendor] = useState(false);
+
   // Checklist State
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
 
-  // Contact State (for Step 8)
+  // Contact State (Step 8)
   const [tempContact, setTempContact] = useState<Partial<Contact>>({ name: '', role: '', phone: '', email: '' });
   const [isAddingContact, setIsAddingContact] = useState(false);
 
@@ -78,16 +79,16 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     initialTermNum: parseTerm(property.initialTerm).num,
     initialTermUnit: parseTerm(property.initialTerm).unit,
     
-    autoRenews: property.autoRenews !== false, // Default to true unless explicitly false
+    autoRenews: property.autoRenews !== false,
     renewalTermNum: parseTerm(property.renewalTerm).num,
     renewalTermUnit: parseTerm(property.renewalTerm).unit,
     
     calculatedEnd: "",
     overrideEndDate: false,
 
-    // Step 7: Cancellation
-    noticeDaysMin: 90,
-    noticeDaysMax: 120,
+    // Step 7: Cancellation (Defaults to empty string for "blank")
+    noticeDaysMin: "" as string | number,
+    noticeDaysMax: "" as string | number,
     hasPenalty: !!property.earlyTerminationPenalty,
     penaltyType: "percentage" as "percentage" | "fixed",
     penaltyValue: property.earlyTerminationPenalty || "",
@@ -102,7 +103,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
   // -- SMART RESUME LOGIC --
   useEffect(() => {
     if (isOpen) {
-      // If we have Vendor & Units but NO Contract Date, skip to Step 3 (Checklist)
       if (property.vendor?.name && property.unitCount && !property.contractStartDate) {
         setFormData(prev => ({
           ...prev,
@@ -119,17 +119,40 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     if (formData.contractStart && !formData.overrideEndDate) {
       const start = new Date(formData.contractStart);
       if (!isNaN(start.getTime())) {
-        const end = new Date(start);
+        let end = new Date(start);
         
-        // Add Term
+        // 1. Add Initial Term
         if (formData.initialTermUnit === "Years") {
           end.setFullYear(end.getFullYear() + Number(formData.initialTermNum));
         } else {
           end.setMonth(end.getMonth() + Number(formData.initialTermNum));
         }
 
-        // Subtract 1 Day (Coverage Logic)
+        // 2. Subtract 1 Day (Coverage Logic: Jan 1 -> Dec 31)
         end.setDate(end.getDate() - 1);
+
+        // 3. Project Forward if Expired (and Auto-Renews is TRUE)
+        if (formData.autoRenews) {
+          const now = new Date();
+          let safety = 0;
+          // While end date is in the past, keep adding renewal terms
+          while (end < now && safety < 50) {
+             // Add Renewal Term
+             const currentEnd = new Date(end); // Snapshot for accurate addition
+             // Add 1 day back to simplify month math, then subtract again
+             currentEnd.setDate(currentEnd.getDate() + 1); 
+             
+             if (formData.renewalTermUnit === "Years") {
+               currentEnd.setFullYear(currentEnd.getFullYear() + Number(formData.renewalTermNum));
+             } else {
+               currentEnd.setMonth(currentEnd.getMonth() + Number(formData.renewalTermNum));
+             }
+             
+             currentEnd.setDate(currentEnd.getDate() - 1); // Coverage logic again
+             end = currentEnd;
+             safety++;
+          }
+        }
 
         setFormData(prev => ({ 
           ...prev, 
@@ -138,15 +161,27 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
         }));
       }
     }
-  }, [formData.contractStart, formData.initialTermNum, formData.initialTermUnit, formData.overrideEndDate]);
+  }, [
+    formData.contractStart, 
+    formData.initialTermNum, 
+    formData.initialTermUnit, 
+    formData.renewalTermNum, 
+    formData.renewalTermUnit,
+    formData.autoRenews, // Added dependency
+    formData.overrideEndDate
+  ]);
 
   // -- HANDLERS --
 
+  const handleSelectAll = () => {
+    setCheckedItems(CHECKLIST_ITEMS);
+  };
+
   const handleCopyEmail = () => {
     const addressString = `${property.address}, ${property.city}, ${property.state} ${property.zip}`;
-    const text = `Subject: Request for Elevator Service Agreement - ${property.name}
-
-Hi,
+    const userName = profile?.name || profile?.role || "Property Manager";
+    
+    const text = `Hi,
 
 Could you please provide the following information for ${property.name} (${addressString}):
 
@@ -155,10 +190,11 @@ Could you please provide the following information for ${property.name} (${addre
 3. Billing Frequency
 4. Current contract end date
 5. Our Account/Contract Number and Bill To Number
-6. Confirm our assigned point of contact
+
+Please also confirm that you are still our assigned point of contact.
 
 Thanks,
-${profile?.name || "Property Manager"}`;
+${userName}`;
 
     navigator.clipboard.writeText(text);
     setEmailCopied(true);
@@ -178,7 +214,7 @@ ${profile?.name || "Property Manager"}`;
     const newContact: Contact = {
       id: `new-${Date.now()}`,
       name: tempContact.name!,
-      role: tempContact.role || 'Point of Contact',
+      role: tempContact.role || 'Account Manager',
       phone: tempContact.phone || '',
       email: tempContact.email!
     };
@@ -218,7 +254,6 @@ ${profile?.name || "Property Manager"}`;
     // STEP 3: Checklist Gate
     if (step === 3) {
       if (checkedItems.length < CHECKLIST_ITEMS.length) {
-        // Missing items -> Show Email Screen
         setShowEmailScreen(true);
         return;
       }
@@ -231,7 +266,6 @@ ${profile?.name || "Property Manager"}`;
         setIsAddingContact(true);
         return;
       }
-      // If user typed in box but didn't click "Add", try to add it for them
       if (isAddingContact && tempContact.name) {
         handleAddContact();
       }
@@ -244,7 +278,6 @@ ${profile?.name || "Property Manager"}`;
         finalStatus = 'on_national_agreement';
       }
       
-      // Auto-Renew Logic cleanup
       const renewalVal = formData.autoRenews 
         ? `${formData.renewalTermNum} ${formData.renewalTermUnit}`
         : "0 Years";
@@ -253,7 +286,7 @@ ${profile?.name || "Property Manager"}`;
         ...formData, 
         initialTerm: `${formData.initialTermNum} ${formData.initialTermUnit}`,
         renewalTerm: renewalVal,
-        cancellationWindow: formData.autoRenews ? `${formData.noticeDaysMax} - ${formData.noticeDaysMin} Days` : "N/A",
+        cancellationWindow: formData.autoRenews && formData.noticeDaysMax ? `${formData.noticeDaysMax} - ${formData.noticeDaysMin} Days` : "N/A",
         status: finalStatus 
       });
       return;
@@ -263,7 +296,6 @@ ${profile?.name || "Property Manager"}`;
   };
 
   const handleSavePartial = () => {
-    // Saves Step 1 & 2 data (Vendor/Units) but keeps status 'missing_data'
     onComplete({
       ...formData,
       status: 'missing_data'
@@ -300,8 +332,8 @@ ${profile?.name || "Property Manager"}`;
                   Yes
                 </button>
                 <button 
-                  onClick={() => setFormData({...formData, hasElevators: false})}
-                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasElevators === false ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
+                  onClick={handleNoElevators}
+                  className="flex-1 py-4 border-2 rounded-md font-bold transition-all border-border hover:border-red-300 hover:bg-red-50 hover:text-red-700"
                 >
                   No
                 </button>
@@ -364,12 +396,19 @@ ${profile?.name || "Property Manager"}`;
             </div>
           )}
 
-          {/* STEP 3: DOCUMENT CHECKLIST OR EMAIL */}
+          {/* STEP 3: DOCUMENT CHECKLIST */}
           {step === 3 && (
             <>
               {!showEmailScreen ? (
                 <div className="space-y-6">
                   <h3 className="text-lg font-bold text-text-primary">Do you have all of the information below?</h3>
+                  
+                  <div className="flex justify-end">
+                    <button onClick={handleSelectAll} className="text-xs text-brand font-bold hover:underline">
+                      Yes, I have all the information
+                    </button>
+                  </div>
+
                   <div className="space-y-2">
                     {CHECKLIST_ITEMS.map(item => (
                       <label key={item} className="flex items-center gap-3 p-3 border border-border rounded-md hover:bg-slate-50 cursor-pointer">
@@ -418,17 +457,44 @@ ${profile?.name || "Property Manager"}`;
           {/* STEP 4: VENDOR DETAILS */}
           {step === 4 && (
             <div className="space-y-6">
-              <div className="bg-slate-50 p-4 rounded-md border border-border flex items-center justify-between mb-4">
-                <div>
+              
+              {/* EDITABLE VENDOR BLOCK */}
+              <div className="bg-slate-50 p-4 rounded-md border border-border">
+                <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-bold text-text-secondary uppercase">Current Vendor</span>
-                  <p className="font-bold text-text-primary">{formData.vendorName}</p>
+                  <button 
+                    onClick={() => setIsEditingVendor(!isEditingVendor)}
+                    className="text-xs font-bold text-brand hover:underline flex items-center gap-1"
+                  >
+                    {isEditingVendor ? "Done" : "Edit"} <Edit2 className="w-3 h-3" />
+                  </button>
                 </div>
-                <StarRating value={formData.ratingRaw} readonly />
+
+                {isEditingVendor ? (
+                  <div className="space-y-4 animate-in fade-in">
+                    <select 
+                      className="w-full p-2 border border-border rounded-md bg-white focus:border-brand outline-none text-sm"
+                      value={formData.vendorName}
+                      onChange={e => setFormData({...formData, vendorName: e.target.value})}
+                    >
+                      {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">Rating:</span>
+                      <StarRating value={formData.ratingRaw} onChange={v => setFormData({...formData, ratingRaw: v})} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-text-primary">{formData.vendorName}</p>
+                    <StarRating value={formData.ratingRaw} readonly />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Account Number <span className="text-red-500">*</span></label>
+                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Account Number (Optional)</label>
                   <input className="w-full p-2 border border-border rounded-md" value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} />
                 </div>
                 <div>
@@ -549,11 +615,6 @@ ${profile?.name || "Property Manager"}`;
                   disabled={!formData.overrideEndDate}
                   onChange={e => setFormData({...formData, contractEnd: e.target.value})} 
                 />
-                {!formData.overrideEndDate && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Auto-calculated: Start Date + Initial Term - 1 Day
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -566,13 +627,15 @@ ${profile?.name || "Property Manager"}`;
                   <div>
                     <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Not Before (Days)</label>
                     <input type="number" className="w-full p-2 border border-border rounded-md" 
-                      value={formData.noticeDaysMax} onChange={e => setFormData({...formData, noticeDaysMax: Number(e.target.value)})} />
+                      placeholder="e.g. 120"
+                      value={formData.noticeDaysMax} onChange={e => setFormData({...formData, noticeDaysMax: e.target.value})} />
                     <p className="text-[10px] text-slate-400 mt-1">Leave blank if contract doesn't specify.</p>
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Not Less Than (Days)</label>
                     <input type="number" className="w-full p-2 border border-border rounded-md" 
-                      value={formData.noticeDaysMin} onChange={e => setFormData({...formData, noticeDaysMin: Number(e.target.value)})} />
+                      placeholder="e.g. 90"
+                      value={formData.noticeDaysMin} onChange={e => setFormData({...formData, noticeDaysMin: e.target.value})} />
                   </div>
                 </div>
               )}
@@ -658,7 +721,8 @@ ${profile?.name || "Property Manager"}`;
                     </div>
                     <div>
                       <label className="text-xs font-bold text-text-secondary block mb-1">Role</label>
-                      <input className="w-full p-2 border rounded-md" placeholder="Property Manager" 
+                      {/* UPDATED: Placeholder */}
+                      <input className="w-full p-2 border rounded-md" placeholder="Account Manager" 
                         value={tempContact.role} onChange={e => setTempContact({...tempContact, role: e.target.value})} />
                     </div>
                     <div>
