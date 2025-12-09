@@ -17,10 +17,13 @@ export function calculatePropertyStatus(property: Property): PropertyStatus {
   const today = new Date();
 
   // 1. HARD OVERRIDES (Manual/Workflow Flags)
-  // These are set explicitly by users and usually shouldn't be overridden by date math
   if (property.status === 'no_elevators') return 'no_elevators';
   if (property.status === 'service_contract_needed') return 'service_contract_needed';
-  if (property.status === 'pending_review') {
+  
+  // Handle Legacy mappings
+  if (property.status === 'no_service_contract') return 'service_contract_needed';
+
+  if (property.status === 'pending_review' || property.status === 'pending_rpm_review') {
     // CRITICAL CHECK: Stuck in pending for 30+ days?
     if (property.statusUpdatedAt) {
       const lastUpdate = new Date(property.statusUpdatedAt);
