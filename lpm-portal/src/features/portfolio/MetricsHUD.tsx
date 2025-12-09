@@ -11,11 +11,26 @@ interface MetricsHUDProps {
 export default function MetricsHUD({ properties, activeFilter, onFilterChange }: MetricsHUDProps) {
   // 1. Calculate Counts
   const total = properties.length;
-  const active = properties.filter(p => p.status === 'active').length;
   
-  // "Action Required" = Critical + Missing Data + Review + Pending RPM + No Contract
-  const actionRequired = properties.filter(p => 
-    ['critical', 'missing_data', 'warning', 'pending_rpm_review', 'no_service_contract'].includes(p.status)
+  // Count "On National Agreement"
+  const nationalCount = properties.filter(p => p.status === 'on_national_agreement').length;
+  
+  // Count "Action Required" (Sum of all urgent statuses)
+  // We include legacy statuses here just in case data hasn't fully migrated yet
+  const actionRequiredCount = properties.filter(p => 
+    [
+      // New Statuses
+      'missing_data', 
+      'pending_review', 
+      'critical_action_required', 
+      'cancellation_window_open', 
+      'add_to_msa', 
+      'service_contract_needed',
+      // Legacy Fallbacks
+      'critical',
+      'pending_rpm_review',
+      'no_service_contract'
+    ].includes(p.status)
   ).length;
 
   const KPI = ({ label, value, icon: Icon, color, filter }: any) => {
@@ -42,7 +57,6 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
   const Divider = () => <div className="h-4 w-[1px] bg-border mx-1" />;
 
   return (
-    // Removed 'mb-4' so it fits in the toolbar
     <div className="flex items-center bg-slate-50 border border-border rounded-md shadow-sm h-12 px-2 w-fit">
       <KPI 
         label="Full Portfolio" 
@@ -54,15 +68,15 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
       <Divider />
       <KPI 
         label="On National Agreement" 
-        value={active} 
+        value={nationalCount} 
         icon={CheckCircle2} 
         color="text-status-active" 
-        filter="active" 
+        filter="on_national_agreement" 
       />
       <Divider />
       <KPI 
         label="Action Required" 
-        value={actionRequired} 
+        value={actionRequiredCount} 
         icon={AlertCircle} 
         color="text-status-critical" 
         filter="action_required" 
