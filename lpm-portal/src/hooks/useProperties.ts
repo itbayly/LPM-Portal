@@ -12,7 +12,6 @@ import {
 import { db } from '../lib/firebase';
 import { useAuth } from '../features/auth/AuthContext';
 import { REAL_PROPERTIES, REAL_USERS } from '../lib/realData';
-import { calculatePropertyStatus } from '../lib/statusLogic'; // <-- NEW IMPORT
 import type { Property, UserProfile } from '../dataModel';
 
 export function useProperties() {
@@ -68,10 +67,7 @@ export function useProperties() {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const liveData: Property[] = [];
         snapshot.forEach((doc) => {
-          const rawData = doc.data() as Property;
-          // DYNAMIC CALCULATION: Apply logic engine on read
-          const dynamicStatus = calculatePropertyStatus(rawData);
-          liveData.push({ ...rawData, id: doc.id, status: dynamicStatus });
+          liveData.push({ ...doc.data(), id: doc.id } as Property);
         });
         setProperties(liveData);
         setLoading(false);
@@ -89,29 +85,19 @@ export function useProperties() {
     }
   }, [user, profile]);
 
-  // -- WRITES --
-
-  const updateProperty = async (id: string, data: Partial<Property>) => {
-    const ref = doc(db, "properties", id);
-    
-    // AUTOMATIC TIMESTAMPING
-    // If status is changing, record the time. This powers the "Stuck for 30 days" logic.
-    if (data.status) {
-      data.statusUpdatedAt = new Date().toISOString();
-    }
-
-    await writeBatch(db).update(ref, data).commit();
-  };
-
   // -- BATCH HELPERS --
   const batchDelete = async (collectionName: string) => {
     const q = query(collection(db, collectionName));
     const snapshot = await getDocs(q);
+    
+    // Firestore batch limit is 500. We chunk it to be safe.
     const CHUNK_SIZE = 400;
     const chunks = [];
+    
     for (let i = 0; i < snapshot.docs.length; i += CHUNK_SIZE) {
       chunks.push(snapshot.docs.slice(i, i + CHUNK_SIZE));
     }
+
     for (const chunk of chunks) {
       const batch = writeBatch(db);
       chunk.forEach(doc => batch.delete(doc.ref));
@@ -125,8 +111,6 @@ export function useProperties() {
       const batch = writeBatch(db);
       newProperties.forEach(prop => {
         const ref = doc(db, "properties", prop.id);
-        // Set initial timestamp for status
-        prop.statusUpdatedAt = new Date().toISOString();
         batch.set(ref, prop);
       });
       derivedUsers.forEach(user => {
@@ -180,19 +164,30 @@ export function useProperties() {
     finally { setLoading(false); }
   };
 
-  const clearDatabase = async () => {
-    if (!confirm("⚠️ DANGER: This will delete ALL Properties AND Users. Are you sure?")) return;
+  // UPDATED: Now accepts flags for selective nuking
+  const clearDatabase = async (options: { properties: boolean; users: boolean }) => {
+    const target = [];
+    if (options.properties) target.push("Properties");
+    if (options.users) target.push("Users");
+    
+    if (!confirm(`⚠️ DANGER: This will delete ALL ${target.join(' AND ')}. Are you sure?`)) return;
+    
     setLoading(true);
     try {
-      await batchDelete("properties");
-      await batchDelete("users");
-      alert("Database Nuked.");
+      if (options.properties) await batchDelete("properties");
+      if (options.users) await batchDelete("users");
+      alert("Selected data has been cleared.");
     } catch (err) {
       console.error("Clear Error:", err);
       alert("Failed to clear database.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateProperty = async (id: string, data: Partial<Property>) => {
+    const ref = doc(db, "properties", id);
+    await writeBatch(db).update(ref, data).commit();
   };
 
   return { properties, loading, error, updateProperty, seedDatabase, clearDatabase, ingestProperties, ingestUsers };

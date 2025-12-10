@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ArrowLeft, User, Phone, Mail, FileText, AlertTriangle, 
-  DollarSign, CheckCircle2, Trash2, Plus, Download, Building, AlertCircle, Calendar
+  DollarSign, CheckCircle2, Trash2, Plus, Download, Building, AlertCircle, Calendar, Loader2
 } from 'lucide-react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import { StarRating } from '../../components/ui/StarRating';
 import VerificationWizard from '../verification/VerificationWizard';
 import { useAuth } from '../auth/AuthContext';
 import { cn } from '../../lib/utils';
-import type { Property, Contact } from '../../dataModel';
+import { uploadFileToStorage } from '../../lib/storage';
+import type { Property, Contact, PropertyDocument } from '../../dataModel';
 
 interface PropertyDetailProps {
   property: Property;
@@ -34,6 +35,8 @@ const parseDateSafe = (dateStr: string | undefined): Date | null => {
 export default function PropertyDetail({ property, onBack, onUpdate }: PropertyDetailProps) {
   const { profile } = useAuth();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // -- HANDLERS --
   const updateVendor = (field: string, value: any) => {
@@ -69,10 +72,17 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
   };
 
   const handleVerificationComplete = (data: any) => {
+    // 1. Merge new documents if any
+    let updatedDocs = property.documents || [];
+    if (data.newDocuments && data.newDocuments.length > 0) {
+      updatedDocs = [...updatedDocs, ...data.newDocuments];
+    }
+
     if (data.status === 'no_elevators' && data.clearData) {
       onUpdate(property.id, {
         status: 'no_elevators',
         unitCount: 0,
+        documents: updatedDocs,
         vendor: { ...property.vendor, name: '', currentPrice: 0, rating: 0, accountNumber: '', serviceInstructions: '' },
         contractStartDate: '',
         contractEndDate: '',
@@ -86,15 +96,15 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       return;
     }
 
-    if (data.status === 'pending_rpm_review') {
-      onUpdate(property.id, { status: 'pending_rpm_review' });
+    if (data.status === 'pending_review') {
+      onUpdate(property.id, { status: 'pending_review' });
       setIsWizardOpen(false);
       return;
     }
 
     const noticeString = `${data.noticeDaysMax} - ${data.noticeDaysMin} Days`;
     onUpdate(property.id, {
-      status: 'active',
+      status: data.status,
       unitCount: data.unitCount,
       contractStartDate: data.contractStart,
       contractEndDate: data.calculatedEnd,
@@ -102,13 +112,20 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       initialTerm: `${data.initialTermNum} ${data.initialTermUnit}`,
       renewalTerm: `${data.renewalTermNum} ${data.renewalTermUnit}`,
       onNationalContract: data.onNationalContract,
-      contacts: data.contacts, // UPDATED: Save Contacts
+      contacts: data.contacts,
+      documents: updatedDocs,
+      priceCap: data.priceCap, 
+      earlyTerminationPenalty: data.penaltyValue, 
+      billTo: data.billTo,
+      buildingId: data.buildingId,
       vendor: {
         ...property.vendor,
         name: data.vendorName,
         rating: data.ratingRaw,
         currentPrice: data.currentPrice,
-        billingFrequency: data.billingFreq
+        billingFrequency: data.billingFreq,
+        accountNumber: data.accountNumber,
+        serviceInstructions: data.serviceInstructions
       }
     });
     setIsWizardOpen(false);
@@ -116,7 +133,36 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
 
   const confirmNoContract = () => {
     if(confirm("Confirm that this property has NO service contract? This will remove it from compliance lists.")) {
-      onUpdate(property.id, { status: 'no_service_contract' });
+      onUpdate(property.id, { status: 'service_contract_needed' });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setIsUploading(true);
+      try {
+        const path = `properties/${property.id}/${Date.now()}_${file.name}`;
+        const url = await uploadFileToStorage(file, path);
+        
+        const newDoc: PropertyDocument = {
+          id: `doc-${Date.now()}`,
+          name: file.name,
+          url: url,
+          type: file.type,
+          uploadedBy: profile?.name || 'User',
+          uploadedAt: new Date().toISOString()
+        };
+
+        const updatedDocs = [...(property.documents || []), newDoc];
+        onUpdate(property.id, { documents: updatedDocs });
+      } catch (err) {
+        console.error(err);
+        alert("Upload failed.");
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -124,6 +170,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
   const manager = property.manager || {};
   const regionalPm = property.regionalPm || {};
   const contacts = property.contacts || [];
+  const documents = property.documents || [];
   const price = typeof vendor.currentPrice === 'number' ? vendor.currentPrice : 0;
 
   useEffect(() => {
@@ -174,6 +221,36 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
     } catch (e) { console.error(e); }
     return result;
   }, [property.contractEndDate, property.cancellationWindow]);
+
+  // -- TERMINATION CALCULATOR & DISPLAY --
+  const terminationDisplay = useMemo(() => {
+    const penalty = property.earlyTerminationPenalty;
+    if (!penalty) return "None";
+
+    const pctMatch = penalty.match(/(\d+)%/);
+    if (pctMatch && property.contractEndDate && price) {
+      const percentage = parseInt(pctMatch[1]) / 100;
+      const end = parseDateSafe(property.contractEndDate);
+      if (end) {
+        const today = new Date();
+        const monthsRemaining = (end.getFullYear() - today.getFullYear()) * 12 + (end.getMonth() - today.getMonth());
+        
+        if (monthsRemaining > 0) {
+          const estimatedCost = price * monthsRemaining * percentage;
+          return `${penalty} Owed (Est. $${estimatedCost.toLocaleString(undefined, {maximumFractionDigits: 0})})`;
+        }
+      }
+    }
+
+    const cleanVal = penalty.replace(/[^0-9.]/g, '');
+    if (cleanVal && !isNaN(Number(cleanVal)) && !penalty.includes('%')) {
+       return `$${Number(cleanVal).toLocaleString()}`;
+    }
+
+    return penalty;
+  }, [property.earlyTerminationPenalty, property.contractEndDate, price]);
+
+  const priceCapDisplay = property.priceCap ? property.priceCap.replace(' Max', '') : null;
 
   const getEventDetails = () => {
     const accountManagerName = property.accountManager?.name || "[Account Manager Name]";
@@ -230,10 +307,10 @@ LPM Property Management
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'BEGIN:VEVENT',
-      `DTSTART;VALUE=DATE:${startDate}`, // All day event for safety/visibility
+      `DTSTART;VALUE=DATE:${startDate}`, 
       `DTEND;VALUE=DATE:${endDate}`,
       `SUMMARY:${subject}`,
-      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`, // Escape newlines for ICS format
+      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`, 
       'END:VEVENT',
       'END:VCALENDAR'
     ].join('\r\n');
@@ -277,6 +354,18 @@ LPM Property Management
     );
   }
 
+  // Determine button label
+  const isVerified = [
+    'active_contract', 
+    'on_national_agreement', 
+    'notice_due_soon', 
+    'no_elevators', 
+    'cancellation_window_open', 
+    'critical_action_required', 
+    'add_to_msa', 
+    'service_contract_needed'
+  ].includes(property.status);
+
   return (
     <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
       
@@ -285,7 +374,7 @@ LPM Property Management
           <ArrowLeft className="w-6 h-6" />
         </button>
         <div>
-          {/* NEW: Company Mapping Breadcrumb */}
+          {/* Company Mapping Breadcrumb */}
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-text-secondary mb-1">
             <span>{property.hierarchy?.area || "Area"}</span>
             <span className="text-slate-300">/</span>
@@ -309,7 +398,7 @@ LPM Property Management
           <StatusPill status={property.status} />
           <button onClick={() => setIsWizardOpen(true)} className="px-4 py-2 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" />
-            Verify Data
+            {isVerified ? "Update Information" : "Verify Data"}
           </button>
         </div>
       </div>
@@ -327,7 +416,7 @@ LPM Property Management
         </div>
       )}
 
-      {property.status === 'pending_rpm_review' && (
+      {property.status === 'pending_review' && (
         <div className="mx-6 mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded-r-sm shadow-sm flex items-center justify-between animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-orange-600" />
@@ -462,6 +551,13 @@ LPM Property Management
                     ${(price * 12).toLocaleString()}
                   </span>
                 </div>
+                {/* Price Cap Display */}
+                {priceCapDisplay && (
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Price Adjustment Cap</label>
+                    <span className="text-sm font-bold text-brand block mt-1">{priceCapDisplay}</span>
+                  </div>
+                )}
                 <div>
                   <label className="text-[11px] font-bold text-text-secondary uppercase block">Contract Start</label>
                   <span className="text-sm text-text-primary block mt-1">{property.contractStartDate || "-"}</span>
@@ -517,6 +613,11 @@ LPM Property Management
                     <label className="text-[11px] font-bold text-text-secondary uppercase block">Renewal Term</label>
                     <span className="text-sm text-text-primary">{property.renewalTerm || "-"}</span>
                  </div>
+                 {/* Termination Penalty - Integrated Row */}
+                 <div className="col-span-2 mt-2">
+                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Early Termination Penalty</label>
+                    <span className="text-sm text-text-primary font-medium">{terminationDisplay}</span>
+                 </div>
               </div>
             </div>
 
@@ -559,20 +660,46 @@ LPM Property Management
                 <FileText className="w-5 h-5 text-text-secondary" /> Document Repository
               </h2>
               <div className="space-y-sm">
-                {['Master Service Agreement (MSA).pdf', 'Insurance Certificate 2024.pdf', 'Q3 Performance Report.pdf'].map((doc, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border border-border rounded-sm hover:border-brand hover:shadow-sm transition-all group cursor-pointer bg-white">
+                {documents.map((doc, i) => (
+                  <div 
+                    key={i} 
+                    className="flex items-center justify-between p-3 border border-border rounded-sm hover:border-brand hover:shadow-sm transition-all group cursor-pointer bg-white"
+                    onClick={() => window.open(doc.url, '_blank')}
+                  >
                     <div className="flex items-center gap-md">
                       <div className="p-2 bg-red-50 rounded-sm">
                         <FileText className="w-5 h-5 text-red-500" />
                       </div>
-                      <span className="text-sm font-medium text-text-primary group-hover:text-brand transition-colors">{doc}</span>
+                      <span className="text-sm font-medium text-text-primary group-hover:text-brand transition-colors">{doc.name}</span>
                     </div>
                     <button className="text-text-secondary hover:text-brand p-2"><Download className="w-4 h-4" /></button>
                   </div>
                 ))}
+                {documents.length === 0 && (
+                  <div className="text-center py-4 text-sm text-slate-400 italic border border-dashed rounded-sm bg-slate-50">
+                    No documents uploaded yet.
+                  </div>
+                )}
               </div>
-              <div className="mt-md pt-md border-t border-dashed border-border text-center">
-                 <button className="text-xs font-bold text-brand uppercase tracking-wide hover:underline">+ Upload New Document</button>
+              <div className="mt-md pt-md border-t border-dashed border-border text-center relative">
+                 <input 
+                   type="file" 
+                   className="hidden" 
+                   ref={fileInputRef} 
+                   onChange={handleFileUpload} 
+                   accept="application/pdf,image/*"
+                 />
+                 <button 
+                   onClick={() => fileInputRef.current?.click()}
+                   disabled={isUploading}
+                   className="text-xs font-bold text-brand uppercase tracking-wide hover:underline flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
+                 >
+                   {isUploading ? (
+                     <><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</>
+                   ) : (
+                     "+ Upload New Document"
+                   )}
+                 </button>
               </div>
             </div>
           </div>

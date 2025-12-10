@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, ChevronRight, ChevronLeft, UploadCloud, DollarSign, 
-  FileText, Mail, Copy, Check, Plus, Trash2, Edit2
+  FileText, Mail, Copy, Check, Plus, Trash2, Edit2, Loader2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StarRating } from '../../components/ui/StarRating';
 import { useAuth } from '../auth/AuthContext';
-import type { Property, Contact } from '../../dataModel';
+import { uploadFileToStorage } from '../../lib/storage'; // <-- NEW IMPORT
+import type { Property, Contact, PropertyDocument } from '../../dataModel';
 
 interface VerificationWizardProps {
   property: Property;
@@ -32,6 +33,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
   const [step, setStep] = useState(1);
   const [emailCopied, setEmailCopied] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // <-- NEW STATE
   
   const [isEditingVendor, setIsEditingVendor] = useState(false);
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
@@ -40,10 +42,32 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
 
   // Helper to parse terms
   const parseTerm = (val: string | undefined) => {
-    if (!val) return { num: 5, unit: "Years" };
+    if (!val) return { num: "", unit: "Years" };
     const num = parseInt(val);
     const unit = val.toLowerCase().includes('month') ? "Months" : "Years";
-    return { num: isNaN(num) ? 5 : num, unit };
+    return { num: isNaN(num) ? "" : num, unit };
+  };
+
+  // Helper to format phone number
+  const formatPhoneNumber = (value: string) => {
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+  };
+
+  // Helper to format Date (MM/DD/YYYY)
+  const formatDateInput = (value: string) => {
+    const v = value.replace(/\D/g, '').slice(0, 8);
+    if (v.length >= 5) {
+      return `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+    } else if (v.length >= 3) {
+      return `${v.slice(0, 2)}/${v.slice(2)}`;
+    }
+    return v;
   };
 
   // Main Form Data
@@ -55,7 +79,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     // Step 4: Vendor
     vendorName: property.vendor?.name || "",
     vendorOther: "",
-    unitCount: property.unitCount || 1,
+    unitCount: property.unitCount || "" as any,
     ratingRaw: property.vendor?.rating || 0,
     onNationalContract: property.onNationalContract || false,
     accountNumber: property.vendor?.accountNumber || "",
@@ -64,17 +88,20 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     serviceInstructions: property.vendor?.serviceInstructions || "",
 
     // Step 5: Billing
-    currentPrice: property.vendor?.currentPrice || 0,
+    currentPrice: property.vendor?.currentPrice || "" as any,
     billingFreq: property.vendor?.billingFrequency || "Monthly",
+    hasPriceCap: !!property.priceCap,
+    priceCapValue: property.priceCap ? property.priceCap.replace(/[^0-9.]/g, '') : "",
+    priceCapUnit: property.priceCap && property.priceCap.includes('$') ? '$' : '%',
 
     // Step 6: Contract Terms
-    contractStart: property.contractStartDate || "",
+    contractStart: "", 
     contractEnd: property.contractEndDate || "",
     
     initialTermNum: parseTerm(property.initialTerm).num,
     initialTermUnit: parseTerm(property.initialTerm).unit,
     
-    autoRenews: property.autoRenews !== false,
+    autoRenews: null as boolean | null,
     renewalTermNum: parseTerm(property.renewalTerm).num,
     renewalTermUnit: parseTerm(property.renewalTerm).unit,
     
@@ -86,7 +113,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     noticeDaysMax: "" as string | number,
     hasPenalty: !!property.earlyTerminationPenalty,
     penaltyType: "percentage" as "percentage" | "fixed",
-    penaltyValue: property.earlyTerminationPenalty || "",
+    penaltyValue: property.earlyTerminationPenalty ? property.earlyTerminationPenalty.replace(/[^0-9.]/g, '') : "",
 
     // Step 8: Contacts
     contacts: property.contacts || [],
@@ -102,7 +129,8 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
         setFormData(prev => ({
           ...prev,
           hasElevators: true,
-          hasProvider: true
+          hasProvider: true,
+          unitCount: property.unitCount
         }));
         setStep(3);
       }
@@ -111,8 +139,10 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
 
   // -- DATE CALCULATOR --
   useEffect(() => {
-    if (formData.contractStart && !formData.overrideEndDate) {
-      const start = new Date(formData.contractStart);
+    if (formData.contractStart.length === 10 && !formData.overrideEndDate && formData.initialTermNum) {
+      const parts = formData.contractStart.split('/');
+      const start = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+      
       if (!isNaN(start.getTime())) {
         let end = new Date(start);
         
@@ -124,7 +154,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
 
         end.setDate(end.getDate() - 1);
 
-        if (formData.autoRenews) {
+        if (formData.autoRenews && formData.renewalTermNum) {
           const now = new Date();
           let safety = 0;
           while (end < now && safety < 50) {
@@ -166,6 +196,11 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     setCheckedItems(CHECKLIST_ITEMS);
   };
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatDateInput(e.target.value);
+    setFormData({ ...formData, contractStart: formatted });
+  };
+
   const handleCopyEmail = () => {
     const addressString = `${property.address}, ${property.city}, ${property.state} ${property.zip}`;
     const userName = profile?.name || profile?.role || "Property Manager";
@@ -179,7 +214,8 @@ Could you please provide the following information for ${property.name} (${addre
 3. Billing Frequency
 4. Current contract end date
 5. Our Account/Contract Number and Bill To Number
-6. Confirm our assigned point of contact
+
+Please also confirm that you are still our assigned point of contact.
 
 Thanks,
 ${userName}`;
@@ -236,28 +272,57 @@ ${userName}`;
 
   // -- NAVIGATION --
 
-  const handleNext = () => {
-    // STEP 1: No Elevators -> Exit
+  const isStepValid = () => {
+    if (step === 1) {
+      if (formData.hasElevators === null) return false;
+      if (formData.hasElevators === true && !formData.unitCount) return false;
+    }
+    if (step === 2) {
+      if (formData.hasProvider === null) return false;
+      if (formData.hasProvider === true) {
+        if (!formData.vendorName) return false;
+        if (formData.vendorName === 'Other' && !formData.vendorOther) return false;
+      }
+    }
+    if (step === 5) {
+      if (!formData.currentPrice) return false;
+      if (formData.hasPriceCap && !formData.priceCapValue) return false;
+    }
+    if (step === 6) {
+      if (formData.contractStart.length !== 10) return false; 
+      if (!formData.initialTermNum) return false;
+      if (formData.autoRenews === null) return false;
+      if (formData.autoRenews === true && !formData.renewalTermNum) return false;
+    }
+    return true;
+  };
+
+  const handleNext = async () => {
     if (step === 1 && formData.hasElevators === false) {
       handleNoElevators();
       return;
     }
-
-    // STEP 2: No Provider -> Exit to RPM Review
     if (step === 2 && formData.hasProvider === false) {
       handleNoProvider();
       return;
     }
-
-    // STEP 3: Checklist Gate
     if (step === 3) {
       if (checkedItems.length < CHECKLIST_ITEMS.length) {
         setShowEmailScreen(true);
         return;
       }
     }
-
-    // STEP 8: Contact Validation
+    if (step === 6) {
+      const parts = formData.contractStart.split('/');
+      const start = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+      const limit = new Date();
+      limit.setFullYear(limit.getFullYear() + 1);
+      
+      if (start > limit) {
+        alert("Start date cannot be more than 12 months in the future.");
+        return;
+      }
+    }
     if (step === 8) {
       if (formData.contacts.length === 0 && !isAddingContact) {
         alert("Please add at least one point of contact.");
@@ -269,10 +334,38 @@ ${userName}`;
       }
     }
 
-    // FINAL STEP
+    // FINAL STEP - UPLOAD AND SAVE
     if (step === 10) {
+      setIsUploading(true);
+      const uploadedDocs: PropertyDocument[] = [];
+
+      // 1. Upload Files
+      try {
+        for (const file of formData.files) {
+          const path = `properties/${property.id}/${Date.now()}_${file.name}`;
+          const url = await uploadFileToStorage(file, path);
+          
+          uploadedDocs.push({
+            id: `doc-${Date.now()}-${Math.random().toString(36).substr(2,9)}`,
+            name: file.name,
+            url: url,
+            type: file.type,
+            uploadedBy: profile?.name || 'Unknown',
+            uploadedAt: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error("Upload failed", err);
+        alert("Failed to upload documents. Please try again.");
+        setIsUploading(false);
+        return;
+      }
+
+      // 2. Prepare Final Data
       let finalStatus = 'active_contract';
-      if (formData.vendorName === 'Schindler' && formData.onNationalContract) {
+      const finalVendorName = formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName;
+
+      if (finalVendorName === 'Schindler' && formData.onNationalContract) {
         finalStatus = 'on_national_agreement';
       }
       
@@ -280,13 +373,27 @@ ${userName}`;
         ? `${formData.renewalTermNum} ${formData.renewalTermUnit}`
         : "0 Years";
 
+      const finalPriceCap = formData.hasPriceCap 
+        ? (formData.priceCapUnit === '%' ? `${formData.priceCapValue}%` : `$${formData.priceCapValue}`)
+        : undefined;
+
+      const finalPenalty = formData.hasPenalty
+        ? (formData.penaltyType === 'percentage' ? `${formData.penaltyValue}%` : `$${formData.penaltyValue}`)
+        : undefined;
+
+      // 3. Complete
       onComplete({ 
         ...formData, 
+        vendorName: finalVendorName, 
         initialTerm: `${formData.initialTermNum} ${formData.initialTermUnit}`,
         renewalTerm: renewalVal,
         cancellationWindow: formData.autoRenews && formData.noticeDaysMax ? `${formData.noticeDaysMax} - ${formData.noticeDaysMin} Days` : "N/A",
-        status: finalStatus 
+        status: finalStatus,
+        priceCap: finalPriceCap,
+        penaltyValue: finalPenalty,
+        newDocuments: uploadedDocs // Pass new docs to parent
       });
+      setIsUploading(false);
       return;
     }
 
@@ -294,8 +401,10 @@ ${userName}`;
   };
 
   const handleSavePartial = () => {
+    const finalVendorName = formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName;
     onComplete({
       ...formData,
+      vendorName: finalVendorName,
       status: 'missing_data'
     });
   };
@@ -312,7 +421,9 @@ ${userName}`;
             <h2 className="text-xl font-bold text-text-primary">Data Verification</h2>
             <p className="text-sm text-text-secondary">Step {step} of 10</p>
           </div>
-          <button onClick={onClose}><X className="w-6 h-6 text-text-secondary hover:text-text-primary" /></button>
+          {!showEmailScreen && (
+            <button onClick={onClose}><X className="w-6 h-6 text-text-secondary hover:text-text-primary" /></button>
+          )}
         </div>
 
         {/* BODY */}
@@ -321,7 +432,7 @@ ${userName}`;
           {/* STEP 1: ELEVATORS */}
           {step === 1 && (
             <div className="space-y-6">
-              <label className="text-lg font-bold text-text-primary block">Does this property have elevators on site?</label>
+              <label className="text-lg font-bold text-text-primary block">Does this property have elevators on site? <span className="text-red-500">*</span></label>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setFormData({...formData, hasElevators: true})}
@@ -330,8 +441,8 @@ ${userName}`;
                   Yes
                 </button>
                 <button 
-                  onClick={handleNoElevators}
-                  className="flex-1 py-4 border-2 rounded-md font-bold transition-all border-border hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => setFormData({...formData, hasElevators: false})}
+                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasElevators === false ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
                 >
                   No
                 </button>
@@ -339,7 +450,7 @@ ${userName}`;
 
               {formData.hasElevators && (
                 <div className="animate-in fade-in slide-in-from-top-2">
-                  <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Number of Elevators</label>
+                  <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Number of Elevators <span className="text-red-500">*</span></label>
                   <input 
                     type="number"
                     className="w-full p-3 border border-border rounded-md focus:border-brand outline-none"
@@ -354,7 +465,7 @@ ${userName}`;
           {/* STEP 2: PROVIDER */}
           {step === 2 && (
             <div className="space-y-6">
-              <label className="text-lg font-bold text-text-primary block">Do you have a current Service Provider?</label>
+              <label className="text-lg font-bold text-text-primary block">Do you have a current Service Provider? <span className="text-red-500">*</span></label>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setFormData({...formData, hasProvider: true})}
@@ -363,8 +474,8 @@ ${userName}`;
                   Yes
                 </button>
                 <button 
-                  onClick={handleNoProvider}
-                  className="flex-1 py-4 border-2 rounded-md font-bold transition-all border-border hover:border-orange-300 hover:bg-orange-50 hover:text-orange-800"
+                  onClick={() => setFormData({...formData, hasProvider: false})}
+                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasProvider === false ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
                 >
                   No
                 </button>
@@ -373,7 +484,7 @@ ${userName}`;
               {formData.hasProvider && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                   <div>
-                    <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Vendor Name</label>
+                    <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Vendor Name <span className="text-red-500">*</span></label>
                     <select 
                       className="w-full p-3 border border-border rounded-md bg-white focus:border-brand outline-none"
                       value={formData.vendorName}
@@ -382,9 +493,18 @@ ${userName}`;
                       <option value="">Select Vendor...</option>
                       {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
+                    
+                    {formData.vendorName === 'Other' && (
+                      <input 
+                        className="w-full p-3 mt-2 border border-border rounded-md focus:border-brand outline-none"
+                        placeholder="Enter Vendor Name..."
+                        value={formData.vendorOther}
+                        onChange={e => setFormData({...formData, vendorOther: e.target.value})}
+                      />
+                    )}
                   </div>
                   <div>
-                    <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Current Rating</label>
+                    <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Current Rating (Optional)</label>
                     <div className="p-3 border border-border rounded-md bg-slate-50 flex justify-center">
                       <StarRating value={formData.ratingRaw} onChange={v => setFormData({...formData, ratingRaw: v})} />
                     </div>
@@ -445,7 +565,7 @@ ${userName}`;
                     onClick={handleSavePartial}
                     className="w-full py-3 bg-brand text-white font-bold rounded-md shadow-sm hover:bg-brand-dark"
                   >
-                    Save & Exit (Pending Data)
+                    Save & Exit
                   </button>
                 </div>
               )}
@@ -477,6 +597,16 @@ ${userName}`;
                     >
                       {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
+                    
+                    {formData.vendorName === 'Other' && (
+                      <input 
+                        className="w-full p-2 border border-border rounded-md focus:border-brand outline-none"
+                        placeholder="Enter Vendor Name..."
+                        value={formData.vendorOther}
+                        onChange={e => setFormData({...formData, vendorOther: e.target.value})}
+                      />
+                    )}
+
                     <div className="flex items-center gap-2">
                       <span className="text-sm">Rating:</span>
                       <StarRating value={formData.ratingRaw} onChange={v => setFormData({...formData, ratingRaw: v})} />
@@ -484,7 +614,9 @@ ${userName}`;
                   </div>
                 ) : (
                   <div className="flex items-center justify-between">
-                    <p className="font-bold text-text-primary">{formData.vendorName}</p>
+                    <p className="font-bold text-text-primary">
+                      {formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName}
+                    </p>
                     <StarRating value={formData.ratingRaw} readonly />
                   </div>
                 )}
@@ -492,7 +624,7 @@ ${userName}`;
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Account Number (Optional)</label>
+                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Account Number</label>
                   <input className="w-full p-2 border border-border rounded-md" value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} />
                 </div>
                 <div>
@@ -515,7 +647,7 @@ ${userName}`;
           {step === 5 && (
             <div className="space-y-6">
               <div>
-                <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Current Monthly Price</label>
+                <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Current Monthly Price <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-text-secondary" />
                   <input 
@@ -536,6 +668,37 @@ ${userName}`;
                   {BILLING_FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
+
+              {/* Price Adjustment Cap */}
+              <div className="pt-4 border-t border-border">
+                <label className="flex items-center gap-2 font-bold text-text-primary cursor-pointer mb-3">
+                  <input type="checkbox" className="rounded text-brand focus:ring-brand" 
+                    checked={formData.hasPriceCap} onChange={e => setFormData({...formData, hasPriceCap: e.target.checked})} />
+                  Is there a price adjustment cap?
+                </label>
+
+                {formData.hasPriceCap && (
+                  <div className="pl-6 animate-in slide-in-from-top-2">
+                    <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Cap Amount / Percentage <span className="text-red-500">*</span></label>
+                    <div className="flex gap-2">
+                      <input 
+                        className="flex-1 p-2 border border-border rounded-md focus:border-brand outline-none"
+                        placeholder="e.g. 3 or 500"
+                        value={formData.priceCapValue}
+                        onChange={e => setFormData({...formData, priceCapValue: e.target.value})}
+                      />
+                      <select 
+                        className="w-20 p-2 border border-border rounded-md bg-white"
+                        value={formData.priceCapUnit}
+                        onChange={e => setFormData({...formData, priceCapUnit: e.target.value})}
+                      >
+                        <option value="%">%</option>
+                        <option value="$">$</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -544,16 +707,21 @@ ${userName}`;
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Original Start Date</label>
-                  <input type="date" className="w-full p-2 border border-border rounded-md" 
-                    value={formData.contractStart} onChange={e => setFormData({...formData, contractStart: e.target.value})} />
+                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Original Start Date <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    placeholder="MM/DD/YYYY"
+                    className="w-full p-2 border border-border rounded-md" 
+                    value={formData.contractStart} 
+                    onChange={handleDateChange} 
+                  />
                 </div>
                 <div>
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Initial Term Length</label>
-                  <div className="flex gap-2">
-                    <input type="number" className="flex-1 p-2 border border-border rounded-md" 
+                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Initial Term Length <span className="text-red-500">*</span></label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="number" className="p-2 border border-border rounded-md w-full" 
                       value={formData.initialTermNum} onChange={e => setFormData({...formData, initialTermNum: Number(e.target.value)})} />
-                    <select className="w-24 p-2 border border-border rounded-md bg-white"
+                    <select className="p-2 border border-border rounded-md bg-white w-full"
                       value={formData.initialTermUnit} onChange={e => setFormData({...formData, initialTermUnit: e.target.value})}>
                       <option>Years</option>
                       <option>Months</option>
@@ -564,17 +732,17 @@ ${userName}`;
 
               {/* Auto-Renew Toggle */}
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-border">
-                <span className="font-bold text-sm text-text-primary">Does this contract auto-renew?</span>
+                <span className="font-bold text-sm text-text-primary">Does this contract auto-renew? <span className="text-red-500">*</span></span>
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setFormData({...formData, autoRenews: true})}
-                    className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews ? "bg-brand text-white" : "bg-white border text-text-secondary")}
+                    className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews === true ? "bg-brand text-white" : "bg-white border text-text-secondary")}
                   >
                     Yes
                   </button>
                   <button 
                     onClick={() => setFormData({...formData, autoRenews: false})}
-                    className={cn("px-3 py-1 rounded text-sm font-bold", !formData.autoRenews ? "bg-brand text-white" : "bg-white border text-text-secondary")}
+                    className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews === false ? "bg-brand text-white" : "bg-white border text-text-secondary")}
                   >
                     No
                   </button>
@@ -583,7 +751,7 @@ ${userName}`;
 
               {formData.autoRenews && (
                 <div className="animate-in fade-in">
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Renewal Term Length</label>
+                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Renewal Term Length <span className="text-red-500">*</span></label>
                   <div className="flex gap-2">
                     <input type="number" className="flex-1 p-2 border border-border rounded-md" 
                       value={formData.renewalTermNum} onChange={e => setFormData({...formData, renewalTermNum: Number(e.target.value)})} />
@@ -731,7 +899,14 @@ ${userName}`;
                     <div>
                       <label className="text-xs font-bold text-text-secondary block mb-1">Phone</label>
                       <input className="w-full p-2 border rounded-md" placeholder="(555) 123-4567" 
-                        value={tempContact.phone} onChange={e => setTempContact({...tempContact, phone: e.target.value})} />
+                        value={tempContact.phone} 
+                        onChange={e => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          if (formatted.length <= 14) { 
+                             setTempContact({...tempContact, phone: formatted})
+                          }
+                        }} 
+                      />
                     </div>
                   </div>
                   <button 
@@ -802,6 +977,14 @@ ${userName}`;
                   <span className="block text-xs font-bold text-text-secondary uppercase">End Date</span>
                   <span className="block font-medium">{formData.contractEnd}</span>
                 </div>
+                {formData.hasPriceCap && (
+                  <div>
+                    <span className="block text-xs font-bold text-text-secondary uppercase">Price Cap</span>
+                    <span className="block font-medium text-brand">
+                      {formData.priceCapUnit === '$' ? `$${formData.priceCapValue}` : `${formData.priceCapValue}%`}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -810,7 +993,7 @@ ${userName}`;
 
         {/* FOOTER */}
         <div className="p-6 border-t border-border bg-slate-50 flex justify-between items-center">
-          {step > 1 ? (
+          {step > 1 && !showEmailScreen ? (
             <button onClick={() => setStep(s => s - 1)} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-medium">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
@@ -819,12 +1002,16 @@ ${userName}`;
           {!showEmailScreen && (
             <button 
               onClick={handleNext}
-              className="px-6 py-2 bg-brand text-white rounded-md font-bold shadow-sm hover:bg-brand-dark flex items-center gap-2"
+              disabled={!isStepValid() || isUploading}
+              className="px-6 py-2 bg-brand text-white rounded-md font-bold shadow-sm hover:bg-brand-dark flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {step === 10 
-                ? (property.status === 'active_contract' || property.status === 'on_national_agreement' ? "Update Information" : "Verify & Complete")
-                : "Next"}
-              {step < 10 && <ChevronRight className="w-4 h-4" />}
+              {isUploading ? (
+                <>Uploading... <Loader2 className="w-4 h-4 animate-spin" /></>
+              ) : step === 10 ? (
+                (property.status === 'active_contract' || property.status === 'on_national_agreement' ? "Update Information" : "Verify & Complete")
+              ) : (
+                <>Next <ChevronRight className="w-4 h-4" /></>
+              )}
             </button>
           )}
         </div>

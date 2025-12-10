@@ -1,36 +1,27 @@
 // --- UPDATED STATUS LIST ---
 export type PropertyStatus = 
-  // Action Required
   | 'missing_data' 
   | 'pending_review' 
   | 'critical_action_required' 
   | 'cancellation_window_open' 
   | 'add_to_msa' 
   | 'service_contract_needed'
-  // No Action / Informational
   | 'notice_due_soon' 
   | 'no_elevators' 
   | 'active_contract' 
   | 'on_national_agreement'
-  // Legacy/Fallbacks (keep these temporarily to prevent crash during migration)
+  // Legacy/Fallbacks
   | 'active'
   | 'warning'
   | 'critical'
   | 'pending_rpm_review'
   | 'no_service_contract';
 
-// FILTER TYPES
 export type FilterType = 'all' | 'action_required' | PropertyStatus;
 
-// --- SECURITY & ROLES ---
 export type UserRole = 
-  | 'admin'           // Admin
-  | 'executive'       // Entire Portfolio
-  | 'area_vp'         // Area
-  | 'region_vp'       // Region
-  | 'market_manager'  // Market
-  | 'regional_pm'     // Regional Property Manager
-  | 'pm';             // Property Manager
+  | 'admin' | 'executive' | 'area_vp' | 'region_vp' 
+  | 'market_manager' | 'regional_pm' | 'pm';
 
 export interface AccessScope {
   type: 'global' | 'area' | 'region' | 'market';
@@ -46,11 +37,21 @@ export interface UserProfile {
   scope?: AccessScope; 
 }
 
+// --- DOCUMENTS ---
+export interface PropertyDocument {
+  id: string;
+  name: string;
+  url: string;
+  type: string; // e.g. 'application/pdf'
+  uploadedBy: string;
+  uploadedAt: string; // ISO String
+}
+
 // --- PROPERTY DATA ---
 
 export interface Vendor {
   name: string;
-  rating: number; // 1-10 Scale
+  rating: number; 
   currentPrice: number;
   billingFrequency?: 'Monthly' | 'Quarterly' | 'Semi-Annual' | 'Annual'; 
   accountNumber: string;
@@ -88,38 +89,21 @@ export interface Property {
   locationPhone: string;
   unitCount: number;
   status: PropertyStatus;
-  
-  // NEW: To track how long a property has been in a status
-  statusUpdatedAt?: string; // ISO Date String
+  statusUpdatedAt?: string;
 
-  // Geographic Hierarchy
   hierarchy: PropertyHierarchy;
-
-  // Internal IDs
   billTo: string;
   buildingId: string;
 
-  // Assignment Emails
   managerEmail: string;
   regionalPmEmail: string;
 
-  // Relationships
-  manager: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-
-  regionalPm: {
-    name: string;
-    email: string;
-    phone: string;
-  };
+  manager: { name: string; email: string; phone: string; };
+  regionalPm: { name: string; email: string; phone: string; };
   
   vendor: Vendor;
   accountManager: AccountManager;
   
-  // Contract Logic
   contractStartDate: string;
   contractEndDate: string;
   initialTerm: string;
@@ -127,9 +111,13 @@ export interface Property {
   cancellationWindow: string; 
   
   earlyTerminationPenalty?: string;
+  priceCap?: string; 
 
   autoRenews: boolean;
   onNationalContract: boolean;
   
   contacts: Contact[];
+  
+  // NEW: Document Storage
+  documents?: PropertyDocument[];
 }

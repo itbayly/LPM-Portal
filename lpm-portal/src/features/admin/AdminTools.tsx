@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useProperties } from '../../hooks/useProperties';
-import { Trash2, Database, ShieldAlert, X } from 'lucide-react';
+import { Trash2, Database, ShieldAlert, X, ChevronRight } from 'lucide-react';
 
 export default function AdminTools() {
   const { seedDatabase, clearDatabase, loading } = useProperties();
-  const [isOpen, setIsOpen] = useState(true); // Default open for visibility
+  const [isOpen, setIsOpen] = useState(true);
+  const [showNukeOptions, setShowNukeOptions] = useState(false);
 
   if (!isOpen) {
     return (
@@ -39,14 +40,49 @@ export default function AdminTools() {
           Seed Hierarchy Data (50)
         </button>
 
-        <button 
-          onClick={clearDatabase}
-          disabled={loading}
-          className="w-full flex items-center gap-2 px-4 py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 rounded-md text-xs font-bold text-red-100 transition-colors disabled:opacity-50"
-        >
-          <Trash2 className="w-4 h-4" />
-          Nuke Database (Clear All)
-        </button>
+        {/* Nuke Button (Toggles Options) */}
+        {!showNukeOptions ? (
+          <button 
+            onClick={() => setShowNukeOptions(true)}
+            disabled={loading}
+            className="w-full flex items-center gap-2 px-4 py-2 bg-red-900/50 hover:bg-red-900 border border-red-800 rounded-md text-xs font-bold text-red-100 transition-colors disabled:opacity-50"
+          >
+            <Trash2 className="w-4 h-4" />
+            Nuke Database...
+          </button>
+        ) : (
+          <div className="space-y-2 p-2 bg-red-950/30 rounded border border-red-900/50 animate-in slide-in-from-top-2">
+            <p className="text-[10px] text-red-300 font-bold uppercase tracking-wider mb-1">Select Data to Clear:</p>
+            
+            <button 
+              onClick={() => { clearDatabase({ properties: true, users: false }); setShowNukeOptions(false); }}
+              className="w-full text-left px-2 py-1.5 hover:bg-red-900/50 rounded text-xs text-red-100 flex items-center justify-between"
+            >
+              Properties Only <ChevronRight className="w-3 h-3 opacity-50" />
+            </button>
+
+            <button 
+              onClick={() => { clearDatabase({ properties: false, users: true }); setShowNukeOptions(false); }}
+              className="w-full text-left px-2 py-1.5 hover:bg-red-900/50 rounded text-xs text-red-100 flex items-center justify-between"
+            >
+              Users Only <ChevronRight className="w-3 h-3 opacity-50" />
+            </button>
+
+            <button 
+              onClick={() => { clearDatabase({ properties: true, users: true }); setShowNukeOptions(false); }}
+              className="w-full text-left px-2 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs text-white font-bold flex items-center justify-between shadow-sm mt-1"
+            >
+              NUKE EVERYTHING <Trash2 className="w-3 h-3" />
+            </button>
+
+            <button 
+              onClick={() => setShowNukeOptions(false)}
+              className="w-full text-center py-1 text-[10px] text-slate-400 hover:text-white mt-1"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
       
       <p className="mt-3 text-[10px] text-slate-500 text-center">
