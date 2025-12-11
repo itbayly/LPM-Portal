@@ -1,13 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, ChevronRight, ChevronLeft, UploadCloud, DollarSign, 
-  FileText, Mail, Copy, Check, Plus, Trash2, Edit2, Loader2
-} from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { StarRating } from '../../components/ui/StarRating';
+import { useState, useEffect } from 'react';
+import { X, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { uploadFileToStorage } from '../../lib/storage'; // <-- NEW IMPORT
-import type { Property, Contact, PropertyDocument } from '../../dataModel';
+import { uploadFileToStorage } from '../../lib/storage';
+import type { Property, PropertyDocument } from '../../dataModel';
+
+// --- MODULAR IMPORTS ---
+import { 
+  CHECKLIST_ITEMS, 
+  parseTerm 
+} from './wizard/wizardConfig';
+
+// Import TYPE explicitly to satisfy TypeScript strict mode
+import type { WizardFormData } from './wizard/wizardConfig';
+
+import Step1_Elevators from './wizard/steps/Step1_Elevators';
+import Step2_Provider from './wizard/steps/Step2_Provider';
+import Step3_Checklist from './wizard/steps/Step3_Checklist';
+import Step4_VendorDetails from './wizard/steps/Step4_VendorDetails';
+import Step5_Billing from './wizard/steps/Step5_Billing';
+import Step6_Terms from './wizard/steps/Step6_Terms';
+import Step7_Termination from './wizard/steps/Step7_Termination';
+import Step8_Contacts from './wizard/steps/Step8_Contacts';
+import Step9_Upload from './wizard/steps/Step9_Upload';
+import Step10_Confirm from './wizard/steps/Step10_Confirm';
 
 interface VerificationWizardProps {
   property: Property;
@@ -16,67 +31,25 @@ interface VerificationWizardProps {
   onComplete: (data: any) => void;
 }
 
-const VENDORS = ["Schindler", "Otis", "TK Elevator", "KONE", "Other"];
-const BILLING_FREQUENCIES = ["Monthly", "Quarterly", "Semi-Annual", "Annual"];
-
-const CHECKLIST_ITEMS = [
-  "Fully Executed Service Contract",
-  "Current Monthly Price",
-  "Billing Frequency",
-  "Current contract end date",
-  "Account/Contract Number and Bill To Number",
-  "Assigned point of contact"
-];
-
 export default function VerificationWizard({ property, isOpen, onClose, onComplete }: VerificationWizardProps) {
   const { profile } = useAuth();
+  
+  // -- GLOBAL STATE --
   const [step, setStep] = useState(1);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // Step 3 Specific State
   const [emailCopied, setEmailCopied] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // <-- NEW STATE
-  
-  const [isEditingVendor, setIsEditingVendor] = useState(false);
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
-  const [tempContact, setTempContact] = useState<Partial<Contact>>({ name: '', role: '', phone: '', email: '' });
-  const [isAddingContact, setIsAddingContact] = useState(false);
 
-  // Helper to parse terms
-  const parseTerm = (val: string | undefined) => {
-    if (!val) return { num: "", unit: "Years" };
-    const num = parseInt(val);
-    const unit = val.toLowerCase().includes('month') ? "Months" : "Years";
-    return { num: isNaN(num) ? "" : num, unit };
-  };
+  // -- MAIN FORM DATA --
+  const [formData, setFormData] = useState<WizardFormData>({
+    // Triage
+    hasElevators: null,
+    hasProvider: null,
 
-  // Helper to format phone number
-  const formatPhoneNumber = (value: string) => {
-    const phoneNumber = value.replace(/[^\d]/g, '');
-    const phoneNumberLength = phoneNumber.length;
-    if (phoneNumberLength < 4) return phoneNumber;
-    if (phoneNumberLength < 7) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-    }
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-  };
-
-  // Helper to format Date (MM/DD/YYYY)
-  const formatDateInput = (value: string) => {
-    const v = value.replace(/\D/g, '').slice(0, 8);
-    if (v.length >= 5) {
-      return `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
-    } else if (v.length >= 3) {
-      return `${v.slice(0, 2)}/${v.slice(2)}`;
-    }
-    return v;
-  };
-
-  // Main Form Data
-  const [formData, setFormData] = useState({
-    // Step 1 & 2
-    hasElevators: null as boolean | null,
-    hasProvider: null as boolean | null,
-
-    // Step 4: Vendor
+    // Vendor
     vendorName: property.vendor?.name || "",
     vendorOther: "",
     unitCount: property.unitCount || "" as any,
@@ -87,42 +60,41 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     buildingId: property.buildingId || "",
     serviceInstructions: property.vendor?.serviceInstructions || "",
 
-    // Step 5: Billing
+    // Billing
     currentPrice: property.vendor?.currentPrice || "" as any,
     billingFreq: property.vendor?.billingFrequency || "Monthly",
     hasPriceCap: !!property.priceCap,
     priceCapValue: property.priceCap ? property.priceCap.replace(/[^0-9.]/g, '') : "",
     priceCapUnit: property.priceCap && property.priceCap.includes('$') ? '$' : '%',
 
-    // Step 6: Contract Terms
-    contractStart: "", 
+    // Terms
+    contractStart: "",
     contractEnd: property.contractEndDate || "",
-    
     initialTermNum: parseTerm(property.initialTerm).num,
     initialTermUnit: parseTerm(property.initialTerm).unit,
     
-    autoRenews: null as boolean | null,
+    autoRenews: null,
     renewalTermNum: parseTerm(property.renewalTerm).num,
     renewalTermUnit: parseTerm(property.renewalTerm).unit,
     
     calculatedEnd: "",
     overrideEndDate: false,
 
-    // Step 7: Cancellation
-    noticeDaysMin: "" as string | number,
-    noticeDaysMax: "" as string | number,
+    // Termination
+    noticeDaysMin: "" as any,
+    noticeDaysMax: "" as any,
     hasPenalty: !!property.earlyTerminationPenalty,
-    penaltyType: "percentage" as "percentage" | "fixed",
+    penaltyType: "percentage",
     penaltyValue: property.earlyTerminationPenalty ? property.earlyTerminationPenalty.replace(/[^0-9.]/g, '') : "",
 
-    // Step 8: Contacts
+    // Arrays
     contacts: property.contacts || [],
-
-    // Step 9: Files
-    files: [] as File[]
+    files: []
   });
 
-  // -- SMART RESUME LOGIC --
+  // -- EFFECTS --
+
+  // 1. Smart Resume
   useEffect(() => {
     if (isOpen) {
       if (property.vendor?.name && property.unitCount && !property.contractStartDate) {
@@ -137,7 +109,7 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
     }
   }, [isOpen, property]);
 
-  // -- DATE CALCULATOR --
+  // 2. Date Calculator
   useEffect(() => {
     if (formData.contractStart.length === 10 && !formData.overrideEndDate && formData.initialTermNum) {
       const parts = formData.contractStart.split('/');
@@ -146,14 +118,15 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
       if (!isNaN(start.getTime())) {
         let end = new Date(start);
         
+        // Initial Term
         if (formData.initialTermUnit === "Years") {
           end.setFullYear(end.getFullYear() + Number(formData.initialTermNum));
         } else {
           end.setMonth(end.getMonth() + Number(formData.initialTermNum));
         }
-
         end.setDate(end.getDate() - 1);
 
+        // Auto-Renew Projection
         if (formData.autoRenews && formData.renewalTermNum) {
           const now = new Date();
           let safety = 0;
@@ -192,15 +165,6 @@ export default function VerificationWizard({ property, isOpen, onClose, onComple
 
   // -- HANDLERS --
 
-  const handleSelectAll = () => {
-    setCheckedItems(CHECKLIST_ITEMS);
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatDateInput(e.target.value);
-    setFormData({ ...formData, contractStart: formatted });
-  };
-
   const handleCopyEmail = () => {
     const addressString = `${property.address}, ${property.city}, ${property.state} ${property.zip}`;
     const userName = profile?.name || profile?.role || "Property Manager";
@@ -225,53 +189,16 @@ ${userName}`;
     setTimeout(() => setEmailCopied(false), 2000);
   };
 
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.files) {
-      const newFiles = Array.from(e.dataTransfer.files).slice(0, 3 - formData.files.length);
-      setFormData(prev => ({ ...prev, files: [...prev.files, ...newFiles] }));
-    }
+  const handleSavePartial = () => {
+    const finalVendorName = formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName;
+    onComplete({
+      ...formData,
+      vendorName: finalVendorName,
+      status: 'missing_data'
+    });
   };
 
-  const handleAddContact = () => {
-    if (!tempContact.name || !tempContact.email) return;
-    const newContact: Contact = {
-      id: `new-${Date.now()}`,
-      name: tempContact.name!,
-      role: tempContact.role || 'Account Manager',
-      phone: tempContact.phone || '',
-      email: tempContact.email!
-    };
-    setFormData(prev => ({
-      ...prev,
-      contacts: [...prev.contacts, newContact]
-    }));
-    setTempContact({ name: '', role: '', phone: '', email: '' });
-    setIsAddingContact(false);
-  };
-
-  const handleDeleteContact = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      contacts: prev.contacts.filter(c => c.id !== id)
-    }));
-  };
-
-  // -- LOGIC GATES --
-
-  const handleNoElevators = () => {
-    if(confirm("Confirming: This property has NO elevators? This will clear existing vendor data.")) {
-      onComplete({ status: 'no_elevators', clearData: true });
-    }
-  };
-
-  const handleNoProvider = () => {
-    alert("This property will be flagged for Regional PM review.");
-    onComplete({ status: 'pending_review' });
-  };
-
-  // -- NAVIGATION --
-
+  // -- VALIDATION LOGIC --
   const isStepValid = () => {
     if (step === 1) {
       if (formData.hasElevators === null) return false;
@@ -297,49 +224,44 @@ ${userName}`;
     return true;
   };
 
+  // -- NAVIGATION --
   const handleNext = async () => {
+    // Logic Gates
     if (step === 1 && formData.hasElevators === false) {
-      handleNoElevators();
+      if(confirm("Confirming: This property has NO elevators? This will clear existing vendor data.")) {
+        onComplete({ status: 'no_elevators', clearData: true });
+      }
       return;
     }
     if (step === 2 && formData.hasProvider === false) {
-      handleNoProvider();
+      alert("This property will be flagged for Regional PM review.");
+      onComplete({ status: 'pending_review' });
       return;
     }
-    if (step === 3) {
-      if (checkedItems.length < CHECKLIST_ITEMS.length) {
-        setShowEmailScreen(true);
-        return;
-      }
+    if (step === 3 && checkedItems.length < CHECKLIST_ITEMS.length) {
+      setShowEmailScreen(true);
+      return;
     }
     if (step === 6) {
       const parts = formData.contractStart.split('/');
       const start = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
       const limit = new Date();
       limit.setFullYear(limit.getFullYear() + 1);
-      
       if (start > limit) {
         alert("Start date cannot be more than 12 months in the future.");
         return;
       }
     }
-    if (step === 8) {
-      if (formData.contacts.length === 0 && !isAddingContact) {
-        alert("Please add at least one point of contact.");
-        setIsAddingContact(true);
-        return;
-      }
-      if (isAddingContact && tempContact.name) {
-        handleAddContact();
-      }
+    if (step === 8 && formData.contacts.length === 0) {
+      alert("Please add at least one point of contact.");
+      return;
     }
 
-    // FINAL STEP - UPLOAD AND SAVE
+    // FINAL SUBMISSION
     if (step === 10) {
       setIsUploading(true);
       const uploadedDocs: PropertyDocument[] = [];
 
-      // 1. Upload Files
       try {
         for (const file of formData.files) {
           const path = `properties/${property.id}/${Date.now()}_${file.name}`;
@@ -350,63 +272,44 @@ ${userName}`;
             name: file.name,
             url: url,
             type: file.type,
+            storagePath: path,
             uploadedBy: profile?.name || 'Unknown',
             uploadedAt: new Date().toISOString()
           });
         }
       } catch (err) {
-        console.error("Upload failed", err);
+        console.error(err);
         alert("Failed to upload documents. Please try again.");
         setIsUploading(false);
         return;
       }
 
-      // 2. Prepare Final Data
-      let finalStatus = 'active_contract';
       const finalVendorName = formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName;
-
+      let finalStatus = 'active_contract';
       if (finalVendorName === 'Schindler' && formData.onNationalContract) {
         finalStatus = 'on_national_agreement';
       }
-      
-      const renewalVal = formData.autoRenews 
-        ? `${formData.renewalTermNum} ${formData.renewalTermUnit}`
-        : "0 Years";
 
-      const finalPriceCap = formData.hasPriceCap 
-        ? (formData.priceCapUnit === '%' ? `${formData.priceCapValue}%` : `$${formData.priceCapValue}`)
-        : undefined;
-
-      const finalPenalty = formData.hasPenalty
-        ? (formData.penaltyType === 'percentage' ? `${formData.penaltyValue}%` : `$${formData.penaltyValue}`)
-        : undefined;
-
-      // 3. Complete
       onComplete({ 
         ...formData, 
         vendorName: finalVendorName, 
         initialTerm: `${formData.initialTermNum} ${formData.initialTermUnit}`,
-        renewalTerm: renewalVal,
+        renewalTerm: formData.autoRenews ? `${formData.renewalTermNum} ${formData.renewalTermUnit}` : "0 Years",
         cancellationWindow: formData.autoRenews && formData.noticeDaysMax ? `${formData.noticeDaysMax} - ${formData.noticeDaysMin} Days` : "N/A",
         status: finalStatus,
-        priceCap: finalPriceCap,
-        penaltyValue: finalPenalty,
-        newDocuments: uploadedDocs // Pass new docs to parent
+        priceCap: formData.hasPriceCap 
+          ? (formData.priceCapUnit === '%' ? `${formData.priceCapValue}%` : `$${formData.priceCapValue}`)
+          : undefined,
+        penaltyValue: formData.hasPenalty
+          ? (formData.penaltyType === 'percentage' ? `${formData.penaltyValue}%` : `$${formData.penaltyValue}`)
+          : undefined,
+        newDocuments: uploadedDocs 
       });
       setIsUploading(false);
       return;
     }
 
     setStep(s => s + 1);
-  };
-
-  const handleSavePartial = () => {
-    const finalVendorName = formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName;
-    onComplete({
-      ...formData,
-      vendorName: finalVendorName,
-      status: 'missing_data'
-    });
   };
 
   if (!isOpen) return null;
@@ -426,569 +329,29 @@ ${userName}`;
           )}
         </div>
 
-        {/* BODY */}
+        {/* BODY (RENDER STEP COMPONENTS) */}
         <div className="flex-1 overflow-y-auto p-8">
-          
-          {/* STEP 1: ELEVATORS */}
-          {step === 1 && (
-            <div className="space-y-6">
-              <label className="text-lg font-bold text-text-primary block">Does this property have elevators on site? <span className="text-red-500">*</span></label>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setFormData({...formData, hasElevators: true})}
-                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasElevators === true ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
-                >
-                  Yes
-                </button>
-                <button 
-                  onClick={() => setFormData({...formData, hasElevators: false})}
-                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasElevators === false ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
-                >
-                  No
-                </button>
-              </div>
-
-              {formData.hasElevators && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                  <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Number of Elevators <span className="text-red-500">*</span></label>
-                  <input 
-                    type="number"
-                    className="w-full p-3 border border-border rounded-md focus:border-brand outline-none"
-                    value={formData.unitCount}
-                    onChange={e => setFormData({...formData, unitCount: Number(e.target.value)})}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 2: PROVIDER */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <label className="text-lg font-bold text-text-primary block">Do you have a current Service Provider? <span className="text-red-500">*</span></label>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => setFormData({...formData, hasProvider: true})}
-                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasProvider === true ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
-                >
-                  Yes
-                </button>
-                <button 
-                  onClick={() => setFormData({...formData, hasProvider: false})}
-                  className={cn("flex-1 py-4 border-2 rounded-md font-bold transition-all", formData.hasProvider === false ? "border-brand bg-blue-50 text-brand" : "border-border hover:border-slate-300")}
-                >
-                  No
-                </button>
-              </div>
-
-              {formData.hasProvider && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <div>
-                    <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Vendor Name <span className="text-red-500">*</span></label>
-                    <select 
-                      className="w-full p-3 border border-border rounded-md bg-white focus:border-brand outline-none"
-                      value={formData.vendorName}
-                      onChange={e => setFormData({...formData, vendorName: e.target.value})}
-                    >
-                      <option value="">Select Vendor...</option>
-                      {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    
-                    {formData.vendorName === 'Other' && (
-                      <input 
-                        className="w-full p-3 mt-2 border border-border rounded-md focus:border-brand outline-none"
-                        placeholder="Enter Vendor Name..."
-                        value={formData.vendorOther}
-                        onChange={e => setFormData({...formData, vendorOther: e.target.value})}
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Current Rating (Optional)</label>
-                    <div className="p-3 border border-border rounded-md bg-slate-50 flex justify-center">
-                      <StarRating value={formData.ratingRaw} onChange={v => setFormData({...formData, ratingRaw: v})} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 3: DOCUMENT CHECKLIST */}
+          {step === 1 && <Step1_Elevators formData={formData} setFormData={setFormData} />}
+          {step === 2 && <Step2_Provider formData={formData} setFormData={setFormData} />}
           {step === 3 && (
-            <>
-              {!showEmailScreen ? (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-bold text-text-primary">Do you have all of the information below?</h3>
-                  
-                  <div className="flex justify-end">
-                    <button onClick={handleSelectAll} className="text-xs text-brand font-bold hover:underline">
-                      Yes, I have all the information
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    {CHECKLIST_ITEMS.map(item => (
-                      <label key={item} className="flex items-center gap-3 p-3 border border-border rounded-md hover:bg-slate-50 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          className="w-5 h-5 rounded border-slate-300 text-brand focus:ring-brand"
-                          checked={checkedItems.includes(item)}
-                          onChange={(e) => {
-                            if (e.target.checked) setCheckedItems([...checkedItems, item]);
-                            else setCheckedItems(checkedItems.filter(i => i !== item));
-                          }}
-                        />
-                        <span className="text-sm font-medium text-text-primary">{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-6 animate-in fade-in">
-                  <h4 className="font-bold text-blue-900 flex items-center gap-2 mb-2">
-                    <Mail className="w-5 h-5" /> Missing Information
-                  </h4>
-                  <p className="text-sm text-blue-800 mb-4">
-                    Since you don't have all the required documents, please email your account manager. We will save your progress.
-                  </p>
-                  
-                  <button 
-                    onClick={handleCopyEmail}
-                    className="w-full py-2 bg-white border border-blue-200 rounded text-sm font-bold text-blue-700 hover:bg-blue-100 flex items-center justify-center gap-2 transition-colors mb-4"
-                  >
-                    {emailCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {emailCopied ? "Copied to Clipboard!" : "Copy Draft Email"}
-                  </button>
-
-                  <button
-                    onClick={handleSavePartial}
-                    className="w-full py-3 bg-brand text-white font-bold rounded-md shadow-sm hover:bg-brand-dark"
-                  >
-                    Save & Exit
-                  </button>
-                </div>
-              )}
-            </>
+            <Step3_Checklist 
+              formData={formData} 
+              setFormData={setFormData}
+              showEmailScreen={showEmailScreen}
+              checkedItems={checkedItems}
+              setCheckedItems={setCheckedItems}
+              handleCopyEmail={handleCopyEmail}
+              handleSavePartial={handleSavePartial}
+              emailCopied={emailCopied}
+            />
           )}
-
-          {/* STEP 4: VENDOR DETAILS */}
-          {step === 4 && (
-            <div className="space-y-6">
-              
-              {/* EDITABLE VENDOR BLOCK */}
-              <div className="bg-slate-50 p-4 rounded-md border border-border">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold text-text-secondary uppercase">Current Vendor</span>
-                  <button 
-                    onClick={() => setIsEditingVendor(!isEditingVendor)}
-                    className="text-xs font-bold text-brand hover:underline flex items-center gap-1"
-                  >
-                    {isEditingVendor ? "Done" : "Edit"} <Edit2 className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {isEditingVendor ? (
-                  <div className="space-y-4 animate-in fade-in">
-                    <select 
-                      className="w-full p-2 border border-border rounded-md bg-white focus:border-brand outline-none text-sm"
-                      value={formData.vendorName}
-                      onChange={e => setFormData({...formData, vendorName: e.target.value})}
-                    >
-                      {VENDORS.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    
-                    {formData.vendorName === 'Other' && (
-                      <input 
-                        className="w-full p-2 border border-border rounded-md focus:border-brand outline-none"
-                        placeholder="Enter Vendor Name..."
-                        value={formData.vendorOther}
-                        onChange={e => setFormData({...formData, vendorOther: e.target.value})}
-                      />
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">Rating:</span>
-                      <StarRating value={formData.ratingRaw} onChange={v => setFormData({...formData, ratingRaw: v})} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-text-primary">
-                      {formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName}
-                    </p>
-                    <StarRating value={formData.ratingRaw} readonly />
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Account Number</label>
-                  <input className="w-full p-2 border border-border rounded-md" value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Bill To # (Optional)</label>
-                  <input className="w-full p-2 border border-border rounded-md" value={formData.billTo} onChange={e => setFormData({...formData, billTo: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Building ID (Optional)</label>
-                  <input className="w-full p-2 border border-border rounded-md" value={formData.buildingId} onChange={e => setFormData({...formData, buildingId: e.target.value})} />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">How to Place Service Call (Optional)</label>
-                  <input className="w-full p-2 border border-border rounded-md" value={formData.serviceInstructions} onChange={e => setFormData({...formData, serviceInstructions: e.target.value})} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 5: BILLING */}
-          {step === 5 && (
-            <div className="space-y-6">
-              <div>
-                <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Current Monthly Price <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-3.5 w-5 h-5 text-text-secondary" />
-                  <input 
-                    type="number"
-                    className="w-full pl-10 p-3 border border-border rounded-md focus:border-brand outline-none"
-                    value={formData.currentPrice}
-                    onChange={e => setFormData({...formData, currentPrice: Number(e.target.value)})}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-bold uppercase text-text-secondary mb-2 block">Billing Frequency</label>
-                <select 
-                  className="w-full p-3 border border-border rounded-md bg-white focus:border-brand outline-none"
-                  value={formData.billingFreq}
-                  onChange={e => setFormData({...formData, billingFreq: e.target.value as any})}
-                >
-                  {BILLING_FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
-
-              {/* Price Adjustment Cap */}
-              <div className="pt-4 border-t border-border">
-                <label className="flex items-center gap-2 font-bold text-text-primary cursor-pointer mb-3">
-                  <input type="checkbox" className="rounded text-brand focus:ring-brand" 
-                    checked={formData.hasPriceCap} onChange={e => setFormData({...formData, hasPriceCap: e.target.checked})} />
-                  Is there a price adjustment cap?
-                </label>
-
-                {formData.hasPriceCap && (
-                  <div className="pl-6 animate-in slide-in-from-top-2">
-                    <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Cap Amount / Percentage <span className="text-red-500">*</span></label>
-                    <div className="flex gap-2">
-                      <input 
-                        className="flex-1 p-2 border border-border rounded-md focus:border-brand outline-none"
-                        placeholder="e.g. 3 or 500"
-                        value={formData.priceCapValue}
-                        onChange={e => setFormData({...formData, priceCapValue: e.target.value})}
-                      />
-                      <select 
-                        className="w-20 p-2 border border-border rounded-md bg-white"
-                        value={formData.priceCapUnit}
-                        onChange={e => setFormData({...formData, priceCapUnit: e.target.value})}
-                      >
-                        <option value="%">%</option>
-                        <option value="$">$</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 6: TERMS */}
-          {step === 6 && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Original Start Date <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
-                    placeholder="MM/DD/YYYY"
-                    className="w-full p-2 border border-border rounded-md" 
-                    value={formData.contractStart} 
-                    onChange={handleDateChange} 
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Initial Term Length <span className="text-red-500">*</span></label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="number" className="p-2 border border-border rounded-md w-full" 
-                      value={formData.initialTermNum} onChange={e => setFormData({...formData, initialTermNum: Number(e.target.value)})} />
-                    <select className="p-2 border border-border rounded-md bg-white w-full"
-                      value={formData.initialTermUnit} onChange={e => setFormData({...formData, initialTermUnit: e.target.value})}>
-                      <option>Years</option>
-                      <option>Months</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Auto-Renew Toggle */}
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-border">
-                <span className="font-bold text-sm text-text-primary">Does this contract auto-renew? <span className="text-red-500">*</span></span>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setFormData({...formData, autoRenews: true})}
-                    className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews === true ? "bg-brand text-white" : "bg-white border text-text-secondary")}
-                  >
-                    Yes
-                  </button>
-                  <button 
-                    onClick={() => setFormData({...formData, autoRenews: false})}
-                    className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews === false ? "bg-brand text-white" : "bg-white border text-text-secondary")}
-                  >
-                    No
-                  </button>
-                </div>
-              </div>
-
-              {formData.autoRenews && (
-                <div className="animate-in fade-in">
-                  <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Renewal Term Length <span className="text-red-500">*</span></label>
-                  <div className="flex gap-2">
-                    <input type="number" className="flex-1 p-2 border border-border rounded-md" 
-                      value={formData.renewalTermNum} onChange={e => setFormData({...formData, renewalTermNum: Number(e.target.value)})} />
-                    <select className="w-24 p-2 border border-border rounded-md bg-white"
-                      value={formData.renewalTermUnit} onChange={e => setFormData({...formData, renewalTermUnit: e.target.value})}>
-                      <option>Years</option>
-                      <option>Months</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* End Date with Override */}
-              <div className="pt-4 border-t border-border">
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-bold uppercase text-text-secondary">Current End Date</label>
-                  {!formData.overrideEndDate && (
-                    <button onClick={() => setFormData({...formData, overrideEndDate: true})} className="text-xs text-brand font-bold hover:underline">
-                      Override Calculation
-                    </button>
-                  )}
-                </div>
-                <input 
-                  type="date" 
-                  className={cn("w-full p-2 border rounded-md", !formData.overrideEndDate ? "bg-slate-100 text-slate-600" : "bg-white border-brand")}
-                  value={formData.contractEnd} 
-                  disabled={!formData.overrideEndDate}
-                  onChange={e => setFormData({...formData, contractEnd: e.target.value})} 
-                />
-              </div>
-            </div>
-          )}
-
-          {/* STEP 7: TERMINATION */}
-          {step === 7 && (
-            <div className="space-y-6">
-              {formData.autoRenews && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Not Before (Days)</label>
-                    <input type="number" className="w-full p-2 border border-border rounded-md" 
-                      placeholder="e.g. 120"
-                      value={formData.noticeDaysMax} onChange={e => setFormData({...formData, noticeDaysMax: e.target.value})} />
-                    <p className="text-[10px] text-slate-400 mt-1">Leave blank if contract doesn't specify.</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">Not Less Than (Days)</label>
-                    <input type="number" className="w-full p-2 border border-border rounded-md" 
-                      placeholder="e.g. 90"
-                      value={formData.noticeDaysMin} onChange={e => setFormData({...formData, noticeDaysMin: e.target.value})} />
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-border">
-                <label className="flex items-center gap-2 font-bold text-text-primary cursor-pointer mb-3">
-                  <input type="checkbox" className="rounded text-brand focus:ring-brand" 
-                    checked={formData.hasPenalty} onChange={e => setFormData({...formData, hasPenalty: e.target.checked})} />
-                  Is there a penalty for early termination?
-                </label>
-
-                {formData.hasPenalty && (
-                  <div className="pl-6 space-y-3 animate-in slide-in-from-top-2">
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="ptype" className="text-brand focus:ring-brand"
-                          checked={formData.penaltyType === 'percentage'} onChange={() => setFormData({...formData, penaltyType: 'percentage'})} />
-                        <span className="text-sm">% of Remaining Term</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="ptype" className="text-brand focus:ring-brand"
-                          checked={formData.penaltyType === 'fixed'} onChange={() => setFormData({...formData, penaltyType: 'fixed'})} />
-                        <span className="text-sm">Fixed Buyout ($)</span>
-                      </label>
-                    </div>
-                    <input 
-                      type={formData.penaltyType === 'fixed' ? "number" : "text"}
-                      className="w-full p-2 border border-border rounded-md focus:border-brand outline-none"
-                      placeholder={formData.penaltyType === 'fixed' ? "e.g. 5000" : "e.g. 50"}
-                      value={formData.penaltyValue}
-                      onChange={e => setFormData({...formData, penaltyValue: e.target.value})}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 8: CONTACTS */}
-          {step === 8 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-bold text-text-primary">Confirm Point of Contact</h3>
-              
-              {/* Existing List */}
-              {formData.contacts.length > 0 && !isAddingContact && (
-                <div className="space-y-2">
-                  {formData.contacts.map(c => (
-                    <div key={c.id} className="flex items-center justify-between p-3 bg-white border border-border rounded-md">
-                      <div>
-                        <p className="font-bold text-sm text-text-primary">{c.name}</p>
-                        <p className="text-xs text-text-secondary">{c.role} • {c.email}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleDeleteContact(c.id)} className="p-2 text-slate-400 hover:text-red-500">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <button 
-                    onClick={() => setIsAddingContact(true)}
-                    className="w-full py-2 border-2 border-dashed border-border rounded-md text-brand font-bold text-sm hover:bg-blue-50 flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" /> Add Another Contact
-                  </button>
-                </div>
-              )}
-
-              {/* Add Form (Shows if no contacts OR user clicks add) */}
-              {(formData.contacts.length === 0 || isAddingContact) && (
-                <div className="bg-slate-50 p-4 rounded-md border border-border space-y-3 animate-in fade-in">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-sm font-bold uppercase text-text-secondary">New Contact</h4>
-                    {formData.contacts.length > 0 && (
-                      <button onClick={() => setIsAddingContact(false)} className="text-xs text-slate-500 hover:text-slate-800">Cancel</button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold text-text-secondary block mb-1">Name</label>
-                      <input className="w-full p-2 border rounded-md" placeholder="Jane Doe" 
-                        value={tempContact.name} onChange={e => setTempContact({...tempContact, name: e.target.value})} />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-text-secondary block mb-1">Role</label>
-                      {/* UPDATED: Placeholder */}
-                      <input className="w-full p-2 border rounded-md" placeholder="Account Manager" 
-                        value={tempContact.role} onChange={e => setTempContact({...tempContact, role: e.target.value})} />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-text-secondary block mb-1">Email</label>
-                      <input className="w-full p-2 border rounded-md" placeholder="jane@email.com" 
-                        value={tempContact.email} onChange={e => setTempContact({...tempContact, email: e.target.value})} />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-text-secondary block mb-1">Phone</label>
-                      <input className="w-full p-2 border rounded-md" placeholder="(555) 123-4567" 
-                        value={tempContact.phone} 
-                        onChange={e => {
-                          const formatted = formatPhoneNumber(e.target.value);
-                          if (formatted.length <= 14) { 
-                             setTempContact({...tempContact, phone: formatted})
-                          }
-                        }} 
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    onClick={handleAddContact}
-                    disabled={!tempContact.name || !tempContact.email}
-                    className="w-full py-2 bg-brand text-white font-bold rounded-md disabled:opacity-50"
-                  >
-                    Save Contact
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 9: UPLOAD */}
-          {step === 9 && (
-            <div className="space-y-6 text-center">
-              <div 
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleFileDrop}
-                className="border-2 border-dashed border-slate-300 rounded-lg h-64 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <UploadCloud className="w-12 h-12 text-slate-400 mb-4" />
-                <p className="text-lg font-medium text-text-primary">Drag & Drop Contract PDF</p>
-                <p className="text-sm text-text-secondary">or click to browse (Max 3 files)</p>
-              </div>
-
-              {formData.files.length > 0 && (
-                <div className="space-y-2 text-left">
-                  <h4 className="text-xs font-bold uppercase text-text-secondary">Attached Files:</h4>
-                  {formData.files.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 bg-white border border-border rounded-md">
-                      <FileText className="w-4 h-4 text-brand" />
-                      <span className="text-sm truncate flex-1">{f.name}</span>
-                      <button onClick={() => setFormData(prev => ({...prev, files: prev.files.filter((_, idx) => idx !== i)}))}>
-                        <X className="w-4 h-4 text-slate-400 hover:text-red-500" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 10: CONFIRM */}
-          {step === 10 && (
-            <div className="space-y-6">
-              <div className="bg-green-50 border border-green-200 p-6 rounded-md text-center">
-                <Check className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                <h3 className="text-lg font-bold text-green-900">Ready to Save</h3>
-                <p className="text-green-800 text-sm">Please confirm the details below are correct.</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-6 text-sm">
-                <div>
-                  <span className="block text-xs font-bold text-text-secondary uppercase">Vendor</span>
-                  <span className="block font-medium">{formData.vendorName === 'Other' ? formData.vendorOther : formData.vendorName}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-text-secondary uppercase">Price</span>
-                  <span className="block font-medium">${formData.currentPrice} / {formData.billingFreq}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-text-secondary uppercase">Term</span>
-                  <span className="block font-medium">{formData.initialTermNum} {formData.initialTermUnit}</span>
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-text-secondary uppercase">End Date</span>
-                  <span className="block font-medium">{formData.contractEnd}</span>
-                </div>
-                {formData.hasPriceCap && (
-                  <div>
-                    <span className="block text-xs font-bold text-text-secondary uppercase">Price Cap</span>
-                    <span className="block font-medium text-brand">
-                      {formData.priceCapUnit === '$' ? `$${formData.priceCapValue}` : `${formData.priceCapValue}%`}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+          {step === 4 && <Step4_VendorDetails formData={formData} setFormData={setFormData} />}
+          {step === 5 && <Step5_Billing formData={formData} setFormData={setFormData} />}
+          {step === 6 && <Step6_Terms formData={formData} setFormData={setFormData} />}
+          {step === 7 && <Step7_Termination formData={formData} setFormData={setFormData} />}
+          {step === 8 && <Step8_Contacts formData={formData} setFormData={setFormData} />}
+          {step === 9 && <Step9_Upload formData={formData} setFormData={setFormData} />}
+          {step === 10 && <Step10_Confirm formData={formData} setFormData={setFormData} />}
         </div>
 
         {/* FOOTER */}

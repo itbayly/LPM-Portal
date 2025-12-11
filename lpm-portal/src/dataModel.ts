@@ -42,9 +42,10 @@ export interface PropertyDocument {
   id: string;
   name: string;
   url: string;
-  type: string; // e.g. 'application/pdf'
+  type: string; 
+  storagePath?: string;
   uploadedBy: string;
-  uploadedAt: string; // ISO String
+  uploadedAt: string;
 }
 
 // --- PROPERTY DATA ---
@@ -70,6 +71,7 @@ export interface Contact {
   role: string;
   email: string;
   phone: string;
+  isPrimary?: boolean; // NEW FIELD
 }
 
 export interface PropertyHierarchy {
@@ -118,6 +120,5 @@ export interface Property {
   
   contacts: Contact[];
   
-  // NEW: Document Storage
   documents?: PropertyDocument[];
 }

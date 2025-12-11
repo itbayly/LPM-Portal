@@ -1,15 +1,18 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  ArrowLeft, User, Phone, Mail, FileText, AlertTriangle, 
-  DollarSign, CheckCircle2, Trash2, Plus, Download, Building, AlertCircle, Calendar, Loader2
-} from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Building, ArrowLeft, AlertCircle } from 'lucide-react';
 import { StatusPill } from '../../components/ui/StatusPill';
-import { StarRating } from '../../components/ui/StarRating';
 import VerificationWizard from '../verification/VerificationWizard';
 import { useAuth } from '../auth/AuthContext';
-import { cn } from '../../lib/utils';
-import { uploadFileToStorage } from '../../lib/storage';
-import type { Property, Contact, PropertyDocument } from '../../dataModel';
+import type { Property } from '../../dataModel';
+
+// --- COMPONENT IMPORTS ---
+import PropertyHeader from './components/PropertyHeader';
+import PropertyLPMResponsibility from './components/PropertyLPMResponsibility';
+import PropertyVendorCard from './components/PropertyVendorCard';
+import PropertyFinancials from './components/PropertyFinancials';
+import PropertyCancellation from './components/PropertyCancellation';
+import PropertyContacts from './components/PropertyContacts';
+import PropertyDocuments from './components/PropertyDocuments';
 
 interface PropertyDetailProps {
   property: Property;
@@ -17,6 +20,7 @@ interface PropertyDetailProps {
   onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
+// Helper for date parsing (kept here for banner logic)
 const parseDateSafe = (dateStr: string | undefined): Date | null => {
   if (!dateStr) return null;
   let d = new Date(dateStr);
@@ -35,42 +39,8 @@ const parseDateSafe = (dateStr: string | undefined): Date | null => {
 export default function PropertyDetail({ property, onBack, onUpdate }: PropertyDetailProps) {
   const { profile } = useAuth();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // -- HANDLERS --
-  const updateVendor = (field: string, value: any) => {
-    onUpdate(property.id, { vendor: { ...property.vendor, [field]: value } });
-  };
-
-  const updateField = (field: keyof Property, value: any) => {
-    onUpdate(property.id, { [field]: value });
-  };
-
-  const handleDeleteContact = (contactId: string) => {
-    if(!confirm("Are you sure you want to remove this contact?")) return;
-    const updatedContacts = (property.contacts || []).filter(c => c.id !== contactId);
-    onUpdate(property.id, { contacts: updatedContacts });
-  };
-
-  const handleAddContact = () => {
-    const newContact: Contact = {
-      id: `new-${Date.now()}`,
-      name: "New Contact",
-      role: "Role...",
-      email: "",
-      phone: ""
-    };
-    onUpdate(property.id, { contacts: [...(property.contacts || []), newContact] });
-  };
-
-  const updateContact = (contactId: string, field: keyof Contact, value: string) => {
-    const updatedContacts = (property.contacts || []).map(c => 
-      c.id === contactId ? { ...c, [field]: value } : c
-    );
-    onUpdate(property.id, { contacts: updatedContacts });
-  };
-
+  // --- WIZARD COMPLETION LOGIC ---
   const handleVerificationComplete = (data: any) => {
     // 1. Merge new documents if any
     let updatedDocs = property.documents || [];
@@ -78,6 +48,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       updatedDocs = [...updatedDocs, ...data.newDocuments];
     }
 
+    // 2. Handle "No Elevators" case
     if (data.status === 'no_elevators' && data.clearData) {
       onUpdate(property.id, {
         status: 'no_elevators',
@@ -96,16 +67,20 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       return;
     }
 
+    // 3. Handle "Pending Review" case
     if (data.status === 'pending_review') {
       onUpdate(property.id, { status: 'pending_review' });
       setIsWizardOpen(false);
       return;
     }
 
+    // 4. Standard Update
     const noticeString = `${data.noticeDaysMax} - ${data.noticeDaysMin} Days`;
     onUpdate(property.id, {
       status: data.status,
       unitCount: data.unitCount,
+      // FIX: Ensure AutoRenews boolean is saved so Cancellation Card logic works
+      autoRenews: data.autoRenews, 
       contractStartDate: data.contractStart,
       contractEndDate: data.calculatedEnd,
       cancellationWindow: noticeString,
@@ -137,193 +112,42 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setIsUploading(true);
-      try {
-        const path = `properties/${property.id}/${Date.now()}_${file.name}`;
-        const url = await uploadFileToStorage(file, path);
-        
-        const newDoc: PropertyDocument = {
-          id: `doc-${Date.now()}`,
-          name: file.name,
-          url: url,
-          type: file.type,
-          uploadedBy: profile?.name || 'User',
-          uploadedAt: new Date().toISOString()
-        };
+  // --- BANNER LOGIC ---
+  const showBanner = useMemo(() => {
+    if (!property.contractEndDate || !property.cancellationWindow) return false;
+    // Don't show banner if it doesn't auto-renew
+    if (property.autoRenews === false) return false;
 
-        const updatedDocs = [...(property.documents || []), newDoc];
-        onUpdate(property.id, { documents: updatedDocs });
-      } catch (err) {
-        console.error(err);
-        alert("Upload failed.");
-      } finally {
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const vendor = property.vendor || {};
-  const manager = property.manager || {};
-  const regionalPm = property.regionalPm || {};
-  const contacts = property.contacts || [];
-  const documents = property.documents || [];
-  const price = typeof vendor.currentPrice === 'number' ? vendor.currentPrice : 0;
-
-  useEffect(() => {
-    const targetText = "Call 1-800-225-3123 and provide them with your Building ID # listed above";
-    if (vendor.name === 'Schindler') {
-      if (!vendor.serviceInstructions || vendor.serviceInstructions === "Contact Service Provider") {
-        updateVendor('serviceInstructions', targetText);
-      }
-    }
-  }, [vendor.name, vendor.serviceInstructions]);
-
-  const { displayDate, showBanner, startWindowDate } = useMemo(() => {
-    const result = { displayDate: null as string | null, showBanner: false, startWindowDate: null as Date | null };
-    if (!property.contractEndDate || !property.cancellationWindow) return result;
     try {
       const nums = property.cancellationWindow.match(/\d+/g)?.map(Number);
-      if (!nums || nums.length === 0) return result;
+      if (!nums || nums.length === 0) return false;
       const endDate = parseDateSafe(property.contractEndDate);
-      if (!endDate) return result;
-      const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      if (!endDate) return false;
+      
       const today = new Date();
-
+      
+      let startWindow = new Date(endDate);
       if (nums.length >= 2) {
-        const maxDays = Math.max(...nums); 
-        const minDays = Math.min(...nums); 
-        const startWindow = new Date(endDate);
+        const maxDays = Math.max(...nums);
         startWindow.setDate(endDate.getDate() - maxDays);
-        const endWindow = new Date(endDate);
-        endWindow.setDate(endDate.getDate() - minDays);
-        const alertStart = new Date(startWindow);
-        alertStart.setDate(startWindow.getDate() - 30);
-        
-        result.displayDate = `${fmt(startWindow)} - ${fmt(endWindow)}`;
-        result.showBanner = today >= alertStart && today <= endWindow;
-        result.startWindowDate = startWindow;
-        
-      } else if (nums.length === 1) {
+      } else {
         const minDays = nums[0];
-        const deadline = new Date(endDate);
-        deadline.setDate(endDate.getDate() - minDays);
-        const alertStart = new Date(deadline);
-        alertStart.setDate(deadline.getDate() - 90);
-        
-        result.displayDate = `Before ${fmt(deadline)}`;
-        result.showBanner = today >= alertStart && today <= deadline;
-        result.startWindowDate = deadline;
+        startWindow.setDate(endDate.getDate() - minDays);
       }
-    } catch (e) { console.error(e); }
-    return result;
-  }, [property.contractEndDate, property.cancellationWindow]);
+      
+      const alertStart = new Date(startWindow);
+      alertStart.setDate(startWindow.getDate() - 30); 
+      
+      const endWindow = new Date(endDate);
+      const minDays = nums.length >= 2 ? Math.min(...nums) : nums[0];
+      endWindow.setDate(endDate.getDate() - minDays);
 
-  // -- TERMINATION CALCULATOR & DISPLAY --
-  const terminationDisplay = useMemo(() => {
-    const penalty = property.earlyTerminationPenalty;
-    if (!penalty) return "None";
+      return today >= alertStart && today <= endWindow;
+    } catch (e) { return false; }
+  }, [property.contractEndDate, property.cancellationWindow, property.autoRenews]);
 
-    const pctMatch = penalty.match(/(\d+)%/);
-    if (pctMatch && property.contractEndDate && price) {
-      const percentage = parseInt(pctMatch[1]) / 100;
-      const end = parseDateSafe(property.contractEndDate);
-      if (end) {
-        const today = new Date();
-        const monthsRemaining = (end.getFullYear() - today.getFullYear()) * 12 + (end.getMonth() - today.getMonth());
-        
-        if (monthsRemaining > 0) {
-          const estimatedCost = price * monthsRemaining * percentage;
-          return `${penalty} Owed (Est. $${estimatedCost.toLocaleString(undefined, {maximumFractionDigits: 0})})`;
-        }
-      }
-    }
 
-    const cleanVal = penalty.replace(/[^0-9.]/g, '');
-    if (cleanVal && !isNaN(Number(cleanVal)) && !penalty.includes('%')) {
-       return `$${Number(cleanVal).toLocaleString()}`;
-    }
-
-    return penalty;
-  }, [property.earlyTerminationPenalty, property.contractEndDate, price]);
-
-  const priceCapDisplay = property.priceCap ? property.priceCap.replace(' Max', '') : null;
-
-  const getEventDetails = () => {
-    const accountManagerName = property.accountManager?.name || "[Account Manager Name]";
-    const accountManagerEmail = property.accountManager?.email || "[Account Manager Email]";
-    const subject = `CANCEL CONTRACT: ${property.name}`;
-    
-    const body = `
-ACTION REQUIRED: Send Cancellation Notice
-
-Send To: ${accountManagerName} (${accountManagerEmail})
-Subject: Non-Renewal of Service Agreement - ${property.name}
-
-DRAFT LETTER:
---------------------------------------------------
-Dear ${accountManagerName},
-
-Please accept this letter as formal notice of our intent NOT to renew the elevator service agreement for:
-
-Property: ${property.name}
-Address: ${property.address}, ${property.city}, ${property.state}
-Account #: ${vendor.accountNumber || "N/A"}
-
-Per our contract terms, we are providing this notice within the required cancellation window. We expect the service agreement to terminate on ${property.contractEndDate}.
-
-Please confirm receipt of this cancellation notice in writing.
-
-Sincerely,
-${profile?.name || "Property Manager"}
-LPM Property Management
---------------------------------------------------
-
-[Note: Attach the contract PDF if available]
-    `.trim();
-
-    return { subject, body };
-  };
-
-  const handleGoogleCalendar = () => {
-    if (!startWindowDate) return;
-    const { subject, body } = getEventDetails();
-    const start = startWindowDate.toISOString().replace(/-|:|\.\d+/g, "");
-    const end = new Date(startWindowDate.getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d+/g, "");
-    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(subject)}&dates=${start}/${end}&details=${encodeURIComponent(body)}`;
-    window.open(googleUrl, '_blank');
-  };
-
-  const handleDownloadICS = () => {
-    if (!startWindowDate) return;
-    const { subject, body } = getEventDetails();
-    const startDate = startWindowDate.toISOString().replace(/-|:|\.\d+/g, "").substring(0, 8);
-    const endDate = new Date(startWindowDate.getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d+/g, "").substring(0, 8);
-
-    const icsContent = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'BEGIN:VEVENT',
-      `DTSTART;VALUE=DATE:${startDate}`, 
-      `DTEND;VALUE=DATE:${endDate}`,
-      `SUMMARY:${subject}`,
-      `DESCRIPTION:${body.replace(/\n/g, '\\n')}`, 
-      'END:VEVENT',
-      'END:VCALENDAR'
-    ].join('\r\n');
-
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.setAttribute('download', `cancellation_reminder_${property.id}.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
+  // --- VIEW: NO ELEVATORS ---
   if (property.status === 'no_elevators') {
     return (
       <div className="flex flex-col h-full bg-canvas p-6">
@@ -354,55 +178,18 @@ LPM Property Management
     );
   }
 
-  // Determine button label
-  const isVerified = [
-    'active_contract', 
-    'on_national_agreement', 
-    'notice_due_soon', 
-    'no_elevators', 
-    'cancellation_window_open', 
-    'critical_action_required', 
-    'add_to_msa', 
-    'service_contract_needed'
-  ].includes(property.status);
-
+  // --- VIEW: MAIN DASHBOARD ---
   return (
     <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
       
-      <div className="flex items-center gap-md mb-lg shrink-0 pt-1">
-        <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-text-secondary">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div>
-          {/* Company Mapping Breadcrumb */}
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-text-secondary mb-1">
-            <span>{property.hierarchy?.area || "Area"}</span>
-            <span className="text-slate-300">/</span>
-            <span>{property.hierarchy?.region || "Region"}</span>
-            <span className="text-slate-300">/</span>
-            <span>{property.hierarchy?.market || "Market"}</span>
-          </div>
+      {/* 1. Header */}
+      <PropertyHeader 
+        property={property} 
+        onBack={onBack} 
+        onVerify={() => setIsWizardOpen(true)} 
+      />
 
-          <div className="flex items-center gap-3">
-            <h1 className="text-[28px] font-bold text-text-primary leading-tight">{property.name || "Unnamed Property"}</h1>
-            <span className="px-2 py-0.5 bg-slate-100 text-text-secondary text-xs font-bold rounded-full border border-border flex items-center gap-1">
-              <Building className="w-3 h-3" />
-              {property.unitCount || 0} Elevators
-            </span>
-          </div>
-          <p className="text-sm text-text-secondary">
-            {property.address}, {property.city}, {property.state} {property.zip}
-          </p>
-        </div>
-        <div className="ml-auto flex items-center gap-md">
-          <StatusPill status={property.status} />
-          <button onClick={() => setIsWizardOpen(true)} className="px-4 py-2 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" />
-            {isVerified ? "Update Information" : "Verify Data"}
-          </button>
-        </div>
-      </div>
-
+      {/* 2. Banners */}
       {showBanner && (
         <div className="mx-6 mb-6 p-4 bg-red-50 border-l-4 border-status-critical rounded-r-sm shadow-sm flex items-start gap-3 animate-in slide-in-from-top-2">
           <AlertCircle className="w-5 h-5 text-status-critical shrink-0 mt-0.5" />
@@ -410,7 +197,6 @@ LPM Property Management
             <h3 className="text-sm font-bold text-red-900 uppercase tracking-wide mb-1">Action Required: Cancellation Window Open</h3>
             <p className="text-sm text-red-800">
               This contract is currently in (or approaching) its cancellation window. 
-              You must provide notice by <strong>{displayDate?.split(' - ')[1]?.replace('Before ', '') || "the deadline"}</strong> to avoid auto-renewal.
             </p>
           </div>
         </div>
@@ -444,268 +230,27 @@ LPM Property Management
         </div>
       )}
 
+      {/* 3. Main Grid Layout */}
       <div className="flex-1 flex gap-lg min-h-0 overflow-hidden">
         
+        {/* Left Column (Static Info) */}
         <div className="w-[360px] flex-shrink-0 overflow-y-auto space-y-lg pr-2 pb-10">
-          <div className="bg-surface rounded-md shadow-lvl1 p-lg border border-border">
-            <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-md">LPM Responsibility</h3>
-            
-            {/* Property Manager Info */}
-            <div className="flex items-start gap-md mb-4">
-              <div className="p-2 bg-slate-100 rounded-full">
-                <User className="w-5 h-5 text-slate-500" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-text-primary">{manager.name || "Unassigned"}</p>
-                <p className="text-xs text-text-secondary">Property Manager</p>
-                <div className="mt-sm space-y-xs">
-                  <div className="flex items-center gap-xs text-xs text-brand">
-                    <Mail className="w-3 h-3" /> {manager.email || "-"}
-                  </div>
-                  <div className="flex items-center gap-xs text-xs text-text-secondary">
-                    <Phone className="w-3 h-3" /> {manager.phone || "-"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Regional PM Info */}
-            <div className="flex items-start gap-md pt-4 border-t border-border">
-              <div className="p-2 bg-slate-100 rounded-full">
-                <User className="w-5 h-5 text-slate-500" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-text-primary">{regionalPm.name || "Unassigned"}</p>
-                <p className="text-xs text-text-secondary">Regional Property Manager</p>
-                <div className="mt-sm space-y-xs">
-                  <div className="flex items-center gap-xs text-xs text-brand">
-                    <Mail className="w-3 h-3" /> {regionalPm.email || "-"}
-                  </div>
-                  <div className="flex items-center gap-xs text-xs text-text-secondary">
-                    <Phone className="w-3 h-3" /> {regionalPm.phone || "-"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="bg-surface rounded-md shadow-lvl1 p-lg border border-border">
-            <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-md">Current Vendor</h3>
-            
-            <div className="mb-lg">
-              <div className="flex items-start justify-between">
-                <span className="text-lg font-bold text-brand block">{vendor.name || "No Vendor Selected"}</span>
-                {vendor.name === 'Schindler' && (
-                  <span className={cn(
-                    "text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide",
-                    property.onNationalContract ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"
-                  )}>
-                    {property.onNationalContract ? "National Agreement" : "Not on Agreement"}
-                  </span>
-                )}
-              </div>
-              <StarRating value={vendor.rating || 0} onChange={(val) => updateVendor('rating', val)} />
-            </div>
-
-            <div className="space-y-md">
-              <div>
-                <label className="text-[11px] font-semibold text-text-secondary uppercase block mb-xs">Account Number</label>
-                <input type="text" className="w-full text-sm font-mono bg-slate-50 p-2 rounded-sm border border-border focus:border-brand focus:ring-1 focus:ring-brand outline-none" value={vendor.accountNumber || ""} onChange={(e) => updateVendor('accountNumber', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-text-secondary uppercase block mb-xs">Bill To #</label>
-                <input type="text" className="w-full text-sm font-mono bg-slate-50 p-2 rounded-sm border border-border focus:border-brand focus:ring-1 focus:ring-brand outline-none" value={property.billTo || ""} onChange={(e) => updateField('billTo', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-text-secondary uppercase block mb-xs">Building ID #</label>
-                <input type="text" className="w-full text-sm font-mono bg-slate-50 p-2 rounded-sm border border-border focus:border-brand focus:ring-1 focus:ring-brand outline-none" value={property.buildingId || ""} onChange={(e) => updateField('buildingId', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-text-secondary uppercase block mb-xs">How To Place a Service Call</label>
-                <textarea className="w-full text-sm bg-slate-50 p-2 rounded-sm border border-border min-h-[80px] focus:border-brand focus:ring-1 focus:ring-brand outline-none resize-y" value={vendor.serviceInstructions || ""} onChange={(e) => updateVendor('serviceInstructions', e.target.value)} />
-              </div>
-            </div>
-          </div>
+          <PropertyLPMResponsibility property={property} />
+          <PropertyVendorCard property={property} onUpdate={onUpdate} />
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 pb-2xl">
-          <div className="bg-surface rounded-md shadow-lvl1 border border-border">
-            
-            {/* Financials Section */}
-            <div className="p-xl border-b border-border">
-              <h2 className="text-lg font-bold text-text-primary mb-lg flex items-center gap-sm">
-                <DollarSign className="w-5 h-5 text-brand" /> Financial Overview
-              </h2>
-              
-              <div className="grid grid-cols-2 gap-x-xl gap-y-lg">
-                <div>
-                  <label className="text-[11px] font-bold text-text-secondary uppercase block">Monthly Base Price</label>
-                  <span className="text-2xl font-mono text-text-primary block mt-1">
-                    ${price.toLocaleString()}
-                  </span>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-text-secondary uppercase block">Annual Spend</label>
-                  <span className="text-xl font-mono text-text-secondary block mt-1">
-                    ${(price * 12).toLocaleString()}
-                  </span>
-                </div>
-                {/* Price Cap Display */}
-                {priceCapDisplay && (
-                  <div className="col-span-2">
-                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Price Adjustment Cap</label>
-                    <span className="text-sm font-bold text-brand block mt-1">{priceCapDisplay}</span>
-                  </div>
-                )}
-                <div>
-                  <label className="text-[11px] font-bold text-text-secondary uppercase block">Contract Start</label>
-                  <span className="text-sm text-text-primary block mt-1">{property.contractStartDate || "-"}</span>
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-text-secondary uppercase block">Current Term End</label>
-                  <span className="text-sm font-bold text-text-primary block mt-1">{property.contractEndDate || "-"}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-xl border-b border-border bg-slate-50/50">
-              <div className="flex items-center justify-between mb-lg">
-                <h2 className="text-lg font-bold text-text-primary flex items-center gap-sm">
-                  <AlertTriangle className="w-5 h-5 text-status-warning" /> Cancellation Intelligence
-                </h2>
-                {startWindowDate && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handleGoogleCalendar}
-                      className="text-xs font-bold text-brand bg-white border border-brand/20 px-3 py-1.5 rounded-sm hover:bg-brand/5 flex items-center gap-2 transition-colors"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      Google
-                    </button>
-                    <button 
-                      onClick={handleDownloadICS}
-                      className="text-xs font-bold text-slate-700 bg-white border border-slate-300 px-3 py-1.5 rounded-sm hover:bg-slate-50 flex items-center gap-2 transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Outlook (.ics)
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-lg mb-lg">
-                 <div>
-                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Notice Window</label>
-                    <span className="text-sm text-text-primary">{property.cancellationWindow || "Not Set"}</span>
-                 </div>
-                 <div>
-                    <label className="text-[11px] font-bold text-text-secondary uppercase block text-brand">Cancellation Window Dates</label>
-                    <span className="text-sm font-bold text-brand">{displayDate || "Missing Data"}</span>
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-lg pt-lg border-t border-blue-100">
-                 <div>
-                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Initial Term</label>
-                    <span className="text-sm text-text-primary">{property.initialTerm || "-"}</span>
-                 </div>
-                 <div>
-                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Renewal Term</label>
-                    <span className="text-sm text-text-primary">{property.renewalTerm || "-"}</span>
-                 </div>
-                 {/* Termination Penalty - Integrated Row */}
-                 <div className="col-span-2 mt-2">
-                    <label className="text-[11px] font-bold text-text-secondary uppercase block">Early Termination Penalty</label>
-                    <span className="text-sm text-text-primary font-medium">{terminationDisplay}</span>
-                 </div>
-              </div>
-            </div>
-
-            <div className="p-xl border-b border-border">
-              <div className="flex items-center justify-between mb-lg">
-                <h2 className="text-lg font-bold text-text-primary flex items-center gap-sm">
-                  <User className="w-5 h-5 text-text-secondary" /> Points of Contact
-                </h2>
-                <button onClick={handleAddContact} className="text-xs font-bold text-brand hover:text-brand-dark flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-sm hover:bg-blue-100 transition-colors">
-                  <Plus className="w-3 h-3" /> Add Contact
-                </button>
-              </div>
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 border-b border-border">
-                  <tr>
-                    <th className="py-2 px-3 text-[11px] font-bold text-text-secondary uppercase">Name</th>
-                    <th className="py-2 px-3 text-[11px] font-bold text-text-secondary uppercase">Role</th>
-                    <th className="py-2 px-3 text-[11px] font-bold text-text-secondary uppercase">Email</th>
-                    <th className="py-2 px-3 text-[11px] font-bold text-text-secondary uppercase">Phone</th>
-                    <th className="w-8"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {contacts.map((c) => (
-                    <tr key={c.id} className="group hover:bg-slate-50 transition-colors">
-                      <td className="p-2"><input className="w-full bg-transparent border-b border-transparent focus:border-brand outline-none text-sm font-medium text-text-primary" value={c.name} onChange={(e) => updateContact(c.id, 'name', e.target.value)} /></td>
-                      <td className="p-2"><input className="w-full bg-transparent border-b border-transparent focus:border-brand outline-none text-sm text-text-secondary" value={c.role} onChange={(e) => updateContact(c.id, 'role', e.target.value)} /></td>
-                      <td className="p-2"><input className="w-full bg-transparentYZ border-b border-transparent focus:border-brand outline-none text-sm text-brand" value={c.email} onChange={(e) => updateContact(c.id, 'email', e.target.value)} /></td>
-                      <td className="p-2"><input className="w-full bg-transparent border-b border-transparent focus:border-brand outline-none text-sm font-mono text-text-secondary" value={c.phone} onChange={(e) => updateContact(c.id, 'phone', e.target.value)} /></td>
-                      <td className="p-2 text-center"><button onClick={() => handleDeleteContact(c.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {contacts.length === 0 && <div className="text-center py-6 text-sm text-slate-400 italic">No contacts listed. Click "Add Contact" to create one.</div>}
-            </div>
-
-            <div className="p-xl">
-              <h2 className="text-lg font-bold text-text-primary mb-lg flex items-center gap-sm">
-                <FileText className="w-5 h-5 text-text-secondary" /> Document Repository
-              </h2>
-              <div className="space-y-sm">
-                {documents.map((doc, i) => (
-                  <div 
-                    key={i} 
-                    className="flex items-center justify-between p-3 border border-border rounded-sm hover:border-brand hover:shadow-sm transition-all group cursor-pointer bg-white"
-                    onClick={() => window.open(doc.url, '_blank')}
-                  >
-                    <div className="flex items-center gap-md">
-                      <div className="p-2 bg-red-50 rounded-sm">
-                        <FileText className="w-5 h-5 text-red-500" />
-                      </div>
-                      <span className="text-sm font-medium text-text-primary group-hover:text-brand transition-colors">{doc.name}</span>
-                    </div>
-                    <button className="text-text-secondary hover:text-brand p-2"><Download className="w-4 h-4" /></button>
-                  </div>
-                ))}
-                {documents.length === 0 && (
-                  <div className="text-center py-4 text-sm text-slate-400 italic border border-dashed rounded-sm bg-slate-50">
-                    No documents uploaded yet.
-                  </div>
-                )}
-              </div>
-              <div className="mt-md pt-md border-t border-dashed border-border text-center relative">
-                 <input 
-                   type="file" 
-                   className="hidden" 
-                   ref={fileInputRef} 
-                   onChange={handleFileUpload} 
-                   accept="application/pdf,image/*"
-                 />
-                 <button 
-                   onClick={() => fileInputRef.current?.click()}
-                   disabled={isUploading}
-                   className="text-xs font-bold text-brand uppercase tracking-wide hover:underline flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
-                 >
-                   {isUploading ? (
-                     <><Loader2 className="w-3 h-3 animate-spin" /> Uploading...</>
-                   ) : (
-                     "+ Upload New Document"
-                   )}
-                 </button>
-              </div>
-            </div>
-          </div>
+        {/* Right Column (Dynamic Info) */}
+        <div className="flex-1 overflow-y-auto pr-2 pb-2xl space-y-6">
+          {/* UPDATED: Passing onUpdate to these two components */}
+          <PropertyFinancials property={property} onUpdate={onUpdate} />
+          <PropertyCancellation property={property} profile={profile} onUpdate={onUpdate} />
+          
+          <PropertyContacts property={property} onUpdate={onUpdate} />
+          <PropertyDocuments property={property} onUpdate={onUpdate} profile={profile} />
         </div>
       </div>
 
+      {/* 4. Wizard Overlay */}
       {isWizardOpen && (
         <VerificationWizard 
           property={property}

@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { storage } from "./firebase"; 
 
 /**
@@ -18,18 +18,12 @@ export async function uploadFileToStorage(file: File, path: string): Promise<str
   const storageRef = ref(storage, path);
 
   try {
-    console.log(`Starting upload for: ${path}`);
     const snapshot = await uploadBytes(storageRef, file);
-    console.log("Upload complete, fetching URL...");
-    
     const url = await getDownloadURL(snapshot.ref);
-    console.log("URL retrieved:", url);
-    
     return url; 
   } catch (error: any) {
     console.error("Firebase Storage Upload Error:", error);
     
-    // Help identify specific permission/config issues
     if (error.code === 'storage/unauthorized') {
       throw new Error("Permission denied: Check Firebase Storage Rules.");
     } else if (error.code === 'storage/bucket-not-found') {
@@ -38,4 +32,17 @@ export async function uploadFileToStorage(file: File, path: string): Promise<str
     
     throw new Error("Failed to upload file to storage.");
   }
+}
+
+/**
+ * Deletes a file from Firebase Storage.
+ */
+export async function deleteFileFromStorage(path: string): Promise<void> {
+  if (!path) return;
+  if (!storage) throw new Error("Storage not initialized");
+
+  const storageRef = ref(storage, path);
+  
+  // We allow this to throw an error so the UI handles it
+  await deleteObject(storageRef);
 }
