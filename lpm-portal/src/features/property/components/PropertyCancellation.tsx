@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { AlertTriangle, Calendar, Download, Ban, ChevronDown, Edit2, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Ban, ChevronDown, Edit2, X } from 'lucide-react';
 import type { Property, UserProfile } from '../../../dataModel';
 
 interface Props {
