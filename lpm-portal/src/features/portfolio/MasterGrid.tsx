@@ -6,7 +6,7 @@ import {
   ArrowUpAZ, 
   ArrowDownZA, 
   Search, 
-  Filter, 
+  // Filter, <--- REMOVED unused import
   ArrowUp, 
   ArrowDown,
   ChevronLeft,
@@ -127,7 +127,8 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   };
 
   // --- SUB-COMPONENT: HEADER MENU (Glassmorphic) ---
-  const HeaderMenu = ({ columnKey, options, onClose }: { columnKey: string, options: string[], onClose: () => void }) => {
+  // UPDATED: Removed unused `onClose` prop
+  const HeaderMenu = ({ columnKey, options }: { columnKey: string, options: string[] }) => {
     const initialSelection = activeFilters[columnKey] || options;
     const [selected, setSelected] = useState<string[]>(initialSelection);
     const [search, setSearch] = useState('');
@@ -306,7 +307,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
             <HeaderMenu 
               columnKey={columnKey} 
               options={getUniqueValues(data, columnKey)} 
-              onClose={() => setOpenMenuColumn(null)} 
+              // UPDATED: Removed passing `onClose` since it's no longer a prop
             />
           )}
         </div>
