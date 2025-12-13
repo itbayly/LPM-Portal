@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
 import LoginPage from './features/auth/LoginPage';
+import LandingPage from './features/landing/LandingPage'; // Import the new Landing Page
 import MasterGrid from './features/portfolio/MasterGrid';
 import PropertyDetail from './features/property/PropertyDetail';
 import MetricsHUD from './features/portfolio/MetricsHUD';
@@ -13,6 +14,7 @@ import { useProperties } from './hooks/useProperties';
 import { cn } from './lib/utils';
 import type { Property, FilterType } from './dataModel';
 
+// ... (Keep your Dashboard component exactly as it was) ...
 function Dashboard() {
   const { logout, user, isAdmin, profile } = useAuth();
   const { properties, loading, error, updateProperty } = useProperties();
@@ -38,12 +40,11 @@ function Dashboard() {
     );
   }, [properties, searchQuery]);
 
-  // 2. View Logic (UPDATED FILTERING)
+  // 2. View Logic
   const viewData = useMemo(() => {
     let result = searchResults;
     if (statusFilter !== 'all') {
       if (statusFilter === 'action_required') {
-        // UPDATED: Now includes ALL the new action statuses
         result = result.filter(p => [
           'missing_data', 
           'pending_review', 
@@ -51,7 +52,6 @@ function Dashboard() {
           'cancellation_window_open', 
           'add_to_msa', 
           'service_contract_needed',
-          // Legacy fallbacks to be safe
           'critical',
           'pending_rpm_review',
           'no_service_contract'
@@ -99,7 +99,6 @@ function Dashboard() {
           />
         ) : (
           <>
-            {/* PM ACTION NOTIFICATION */}
             {(profile?.role === 'pm' || profile?.role === 'regional_pm') && 
              properties.some(p => p.status === 'missing_data') && (
               <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md flex items-center justify-between shadow-sm animate-in slide-in-from-top-2 shrink-0">
@@ -123,7 +122,6 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Toolbar */}
             {viewMode !== 'users' && (
               <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-md mb-lg shrink-0">
                 <div className="flex items-center gap-md w-full xl:w-auto">
@@ -145,7 +143,6 @@ function Dashboard() {
                 </div>
 
                 <div className="flex items-center gap-2 self-end xl:self-auto">
-                  
                   <div className="flex bg-white border border-border rounded-md shadow-sm h-12 p-1 gap-1">
                     <button
                       onClick={() => setViewMode('grid')}
@@ -194,7 +191,6 @@ function Dashboard() {
               </div>
             )}
 
-            {/* MAIN CONTENT */}
             <div className="flex-1 min-h-0 relative">
               {viewMode === 'grid' && (
                 <MasterGrid 
@@ -222,7 +218,20 @@ function Dashboard() {
 
 function AppContent() {
   const { user } = useAuth();
-  return user ? <Dashboard /> : <LoginPage />;
+  const [isLoginView, setIsLoginView] = useState(false);
+
+  // 1. If user is logged in, show Dashboard
+  if (user) {
+    return <Dashboard />;
+  }
+
+  // 2. If user clicked "Login" on Landing Page, show Login Page
+  if (isLoginView) {
+    return <LoginPage />;
+  }
+
+  // 3. Otherwise, show Landing Page
+  return <LandingPage onLoginClick={() => setIsLoginView(true)} />;
 }
 
 export default function App() {

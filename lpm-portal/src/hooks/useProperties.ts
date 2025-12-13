@@ -7,11 +7,13 @@ import {
   query,
   orderBy,
   where,
-  getDocs
+  getDocs,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../features/auth/AuthContext';
 import { REAL_PROPERTIES, REAL_USERS } from '../lib/realData';
+import { deleteFileFromStorage } from '../lib/storage';
 import type { Property, UserProfile } from '../dataModel';
 
 export function useProperties() {
@@ -164,18 +166,55 @@ export function useProperties() {
     finally { setLoading(false); }
   };
 
-  // UPDATED: Now accepts flags for selective nuking
-  const clearDatabase = async (options: { properties: boolean; users: boolean }) => {
+  // UPDATED: Now accepts flags for selective nuking, including documents
+  const clearDatabase = async (options: { properties: boolean; users: boolean; documents?: boolean }) => {
     const target = [];
     if (options.properties) target.push("Properties");
     if (options.users) target.push("Users");
+    if (options.documents) target.push("All Documents");
     
+    if (target.length === 0) return;
+
     if (!confirm(`⚠️ DANGER: This will delete ALL ${target.join(' AND ')}. Are you sure?`)) return;
     
     setLoading(true);
     try {
+      // 1. Clear Documents (Storage + Firestore Array) - Must happen before deleting properties
+      if (options.documents) {
+        console.log("Starting document file cleanup...");
+        const propertiesSnapshot = await getDocs(collection(db, 'properties'));
+        
+        const promises: Promise<void>[] = [];
+
+        propertiesSnapshot.forEach((docSnap) => {
+          const property = docSnap.data() as Property;
+          const docRef = docSnap.ref;
+
+          if (property.documents && property.documents.length > 0) {
+            // Delete files from Firebase Storage
+            property.documents.forEach(doc => {
+              if (doc.storagePath) {
+                // We use catch here so one failure doesn't stop the whole process
+                promises.push(
+                  deleteFileFromStorage(doc.storagePath)
+                    .catch(e => console.warn(`Storage deletion failed for ${doc.name}`, e))
+                );
+              }
+            });
+            
+            // Clear documents array in Firestore
+            promises.push(updateDoc(docRef, { documents: [] }));
+          }
+        });
+        
+        await Promise.all(promises);
+        console.log('Document cleanup complete.');
+      }
+
+      // 2. Clear Collections
       if (options.properties) await batchDelete("properties");
       if (options.users) await batchDelete("users");
+      
       alert("Selected data has been cleared.");
     } catch (err) {
       console.error("Clear Error:", err);

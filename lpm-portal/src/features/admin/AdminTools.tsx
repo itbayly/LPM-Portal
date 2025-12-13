@@ -3,9 +3,16 @@ import { useProperties } from '../../hooks/useProperties';
 import { Trash2, Database, ShieldAlert, X, ChevronRight } from 'lucide-react';
 
 export default function AdminTools() {
-  const { seedDatabase, clearDatabase, loading } = useProperties();
+  // The 'clearDatabase' function is assumed to now accept { documents: boolean }
+  const { seedDatabase, clearDatabase, loading } = useProperties(); 
   const [isOpen, setIsOpen] = useState(true);
   const [showNukeOptions, setShowNukeOptions] = useState(false);
+
+  // Helper to call clearDatabase and close the options panel
+  const handleClear = (options: { properties: boolean, users: boolean, documents?: boolean }) => {
+    clearDatabase(options);
+    setShowNukeOptions(false);
+  }
 
   if (!isOpen) {
     return (
@@ -55,21 +62,30 @@ export default function AdminTools() {
             <p className="text-[10px] text-red-300 font-bold uppercase tracking-wider mb-1">Select Data to Clear:</p>
             
             <button 
-              onClick={() => { clearDatabase({ properties: true, users: false }); setShowNukeOptions(false); }}
+              onClick={() => handleClear({ properties: true, users: false })}
               className="w-full text-left px-2 py-1.5 hover:bg-red-900/50 rounded text-xs text-red-100 flex items-center justify-between"
             >
               Properties Only <ChevronRight className="w-3 h-3 opacity-50" />
             </button>
 
             <button 
-              onClick={() => { clearDatabase({ properties: false, users: true }); setShowNukeOptions(false); }}
+              onClick={() => handleClear({ properties: false, users: true })}
               className="w-full text-left px-2 py-1.5 hover:bg-red-900/50 rounded text-xs text-red-100 flex items-center justify-between"
             >
               Users Only <ChevronRight className="w-3 h-3 opacity-50" />
             </button>
-
+            
+            {/* NEW BUTTON: Nuke All Documents */}
             <button 
-              onClick={() => { clearDatabase({ properties: true, users: true }); setShowNukeOptions(false); }}
+              onClick={() => handleClear({ properties: false, users: false, documents: true })}
+              className="w-full text-left px-2 py-1.5 hover:bg-red-900/50 rounded text-xs text-red-100 flex items-center justify-between"
+            >
+              All Documents Only <ChevronRight className="w-3 h-3 opacity-50" />
+            </button>
+
+            {/* UPDATED BUTTON: NUKE EVERYTHING (includes documents: true) */}
+            <button 
+              onClick={() => handleClear({ properties: true, users: true, documents: true })}
               className="w-full text-left px-2 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs text-white font-bold flex items-center justify-between shadow-sm mt-1"
             >
               NUKE EVERYTHING <Trash2 className="w-3 h-3" />

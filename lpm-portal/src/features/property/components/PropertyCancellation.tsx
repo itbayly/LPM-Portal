@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { AlertTriangle, Calendar, Ban, ChevronDown, Edit2, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Download, Ban, ChevronDown, Edit2, X } from 'lucide-react';
 import type { Property, UserProfile } from '../../../dataModel';
 
 interface Props {
@@ -232,9 +232,11 @@ LPM Property Management
               {isCalendarMenuOpen && (
                 <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-border rounded-md shadow-lg z-10 animate-in fade-in zoom-in-95 duration-100">
                   <button onClick={handleGoogleCalendar} className="w-full text-left px-4 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 text-text-primary">
+                    <Calendar className="w-3 h-3" />
                     Google Calendar
                   </button>
                   <button onClick={handleDownloadICS} className="w-full text-left px-4 py-2 text-xs hover:bg-slate-50 flex items-center gap-2 text-text-primary border-t border-border">
+                    <Download className="w-3 h-3" />
                     Outlook / Apple (.ics)
                   </button>
                 </div>

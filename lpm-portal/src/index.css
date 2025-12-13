@@ -6,8 +6,7 @@
 
 @layer base {
   body {
-    @apply bg-canvas text-text-primary font-sans antialiased;
-    /* "Tabular Lining" for data tables */
+    @apply bg-canvas dark:bg-slate-950 text-text-primary font-sans antialiased;
     font-feature-settings: "tnum"; 
     font-variant-numeric: tabular-nums;
   }
@@ -22,10 +21,18 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  /* CHANGED: Made scrollbar lighter (slate-200) to blend in */
   @apply bg-slate-200 rounded-full border-2 border-transparent bg-clip-padding;
 }
 ::-webkit-scrollbar-thumb:hover {
-  /* CHANGED: Made hover state slightly darker (slate-300) for visibility */
   @apply bg-slate-300;
+}
+
+/* --- LANDING PAGE UTILITIES --- */
+.glass-panel {
+  @apply backdrop-blur-md bg-white/70 border border-white/20;
+}
+
+/* Dark mode support for glass panel if needed */
+.dark .glass-panel {
+  @apply bg-black/50 border-white/10;
 }
