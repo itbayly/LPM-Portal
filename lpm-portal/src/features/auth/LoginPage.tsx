@@ -1,218 +1,347 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
-import { Building2, Lock, Mail, UserPlus, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, AlertCircle, Sun, Moon } from 'lucide-react'; 
+import NoiseOverlay from '../landing/components/NoiseOverlay';
+
+// --- TYPES & HELPERS ---
+type AuthMode = 'signin' | 'signup' | 'invite';
+
+// --- COMPONENT: THE SLOT (INPUT) ---
+const InputSlot = ({ 
+  label, 
+  type = "text", 
+  value, 
+  onChange, 
+  icon: Icon, 
+  readOnly = false,
+  autoFocus = false
+}: any) => {
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <div className="relative group">
+      {/* UPDATED: Added dark:text-slate-400 for better label visibility */}
+      <label className="text-[10px] font-bold uppercase tracking-wide text-text-secondary dark:text-slate-400 mb-1.5 block opacity-70">
+        {label}
+      </label>
+      <div className={`
+        relative flex items-center bg-black/5 dark:bg-white/5 rounded-t-sm overflow-hidden
+        ${readOnly ? 'opacity-60 cursor-not-allowed' : 'cursor-text'}
+      `}>
+        {Icon && (
+          <div className="pl-3 text-text-secondary dark:text-slate-400">
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+        <input 
+          type={type}
+          value={value}
+          onChange={onChange}
+          readOnly={readOnly}
+          autoFocus={autoFocus}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          // UPDATED: Added dark:text-white to make input text visible
+          className="w-full h-12 bg-transparent border-none outline-none text-sm px-3 text-text-primary dark:text-white font-mono placeholder:text-slate-400/50"
+          spellCheck={false}
+        />
+        
+        {/* Animated Bottom Border */}
+        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-text-secondary/20">
+          <motion.div 
+            initial={{ width: "0%" }}
+            animate={{ width: isFocused ? "100%" : "0%" }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="h-full mx-auto bg-brand dark:bg-cyan-400"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
-  
+  // -- STATE --
+  const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0); 
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  // -- THEME STATE --
+  const [isDark, setIsDark] = useState(false);
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password.');
-      } else {
-        setError('Failed to sign in. Please try again.');
-      }
-    } finally {
-      setLoading(false);
+  // -- INIT --
+  useEffect(() => {
+    // 1. Check Invite Token
+    const params = new URLSearchParams(window.location.search);
+    const inviteEmail = params.get('invite') || params.get('token');
+    
+    if (inviteEmail) {
+      setMode('invite');
+      setEmail(inviteEmail); 
+    }
+
+    // 2. Initialize Theme
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (systemDark) {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      setIsDark(false);
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  // -- HANDLERS --
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setError('');
-    setSuccess('');
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      setLoading(false);
-      return;
-    }
 
     try {
-      // 1. Check if user is on the "Roster" (Firestore)
-      const userRef = doc(db, "users", email.toLowerCase());
-      const userSnap = await getDoc(userRef);
+      if (mode === 'signin') {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        if (password !== confirmPassword) throw new Error("Passkeys do not match.");
+        if (password.length < 6) throw new Error("Passkey strength insufficient (min 6 chars).");
 
-      if (!userSnap.exists()) {
-        // SCENARIO: Not on the list
-        setError("Access Denied: Your email is not in the system.");
-        // Optional: Trigger a mailto link for them
-        setTimeout(() => {
-          if(confirm("Would you like to request access from the Administrator?")) {
-            window.location.href = `mailto:admin@lpm.com?subject=Request Access: ${email}&body=Hello Admin,%0D%0A%0D%0APlease add ${email} to the LPM Portal roster.`;
-          }
-        }, 100);
-        setLoading(false);
-        return;
+        const userRef = doc(db, "users", email.toLowerCase());
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          throw new Error("Identity not recognized in roster.");
+        }
+
+        await createUserWithEmailAndPassword(auth, email, password);
       }
-
-      // 2. User is on the list, try to create Auth account
-      await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Success! They are now logged in automatically by the AuthContext listener
-      
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/email-already-in-use') {
-        setError('An account already exists for this email. Please Sign In instead.');
-        setTimeout(() => setIsSignUp(false), 2000); // Auto-switch to login
-      } else {
-        setError('Failed to create account. ' + err.message);
-      }
+      setError(err.message.replace("Firebase:", "").replace("auth/", ""));
+      setShakeKey(prev => prev + 1); 
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
+
+  const isInvite = mode === 'invite';
+  const isSignUp = mode === 'signup' || isInvite;
 
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-surface border border-border rounded-lg shadow-lvl3 overflow-hidden">
-        
-        {/* Brand Header */}
-        <div className="bg-slate-900 p-8 text-center">
-          <div className="inline-flex items-center justify-center p-3 bg-white/10 rounded-full mb-4 ring-1 ring-white/20">
-            <Building2 className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-1">LPM Portal</h1>
-          <p className="text-slate-400 text-sm">Property Management Command Center</p>
-        </div>
+    <div className="relative min-h-screen w-full overflow-hidden font-sans selection:bg-brand selection:text-white flex items-center justify-center bg-[#F2F4F6] dark:bg-[#050507] transition-colors duration-500">
+      
+      {/* 1. ENVIRONMENT LAYERS */}
+      <NoiseOverlay />
+      
+      <div className="fixed -bottom-40 -left-40 w-[600px] h-[600px] bg-[#E0F2FE] rounded-full blur-3xl opacity-40 pointer-events-none dark:hidden mix-blend-multiply" />
+      <div className="fixed -top-40 -right-40 w-[600px] h-[600px] bg-[#2E1065] rounded-full blur-3xl opacity-20 pointer-events-none hidden dark:block mix-blend-screen" />
 
-        {/* Form Container */}
-        <div className="p-8">
-          <div className="mb-6 flex justify-center">
-            <div className="bg-slate-100 p-1 rounded-md inline-flex">
-              <button 
-                onClick={() => { setIsSignUp(false); setError(''); setSuccess(''); }}
-                className={`px-6 py-1.5 text-sm font-bold rounded-sm transition-all ${!isSignUp ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => { setIsSignUp(true); setError(''); setSuccess(''); }}
-                className={`px-6 py-1.5 text-sm font-bold rounded-sm transition-all ${isSignUp ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Sign Up
-              </button>
-            </div>
-          </div>
+      {/* --- THEME TOGGLE ANCHOR --- */}
+      <motion.button
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        onClick={toggleTheme}
+        className="fixed top-6 right-6 z-50 p-3 rounded-full bg-white/10 dark:bg-black/10 backdrop-blur-md border border-white/20 dark:border-white/10 text-text-secondary hover:text-text-primary dark:text-slate-400 dark:hover:text-white hover:bg-white/20 transition-all shadow-sm group"
+      >
+        {isDark ? (
+          <Sun className="w-5 h-5 group-hover:text-yellow-400 transition-colors" />
+        ) : (
+          <Moon className="w-5 h-5 group-hover:text-indigo-500 transition-colors" />
+        )}
+      </motion.button>
 
-          <form onSubmit={isSignUp ? handleSignUp : handleLogin} className="space-y-4">
+      {/* 2. THE ACCESS PANEL */}
+      <motion.div 
+        initial={{ scale: 0.98, opacity: 0, filter: 'blur(10px)' }}
+        animate={{ 
+          scale: 1, 
+          opacity: 1, 
+          filter: 'blur(0px)',
+          x: [0, -10, 10, -10, 10, 0] 
+        }}
+        key={shakeKey === 0 ? 'init' : shakeKey} 
+        transition={{ 
+          duration: shakeKey === 0 ? 0.4 : 0.4, 
+          ease: "easeOut",
+          x: { duration: 0.4 } 
+        }}
+        className="relative z-10 w-[90%] max-w-[420px]"
+      >
+        {/* Border Gradient Wrapper */}
+        <div 
+          className="p-[1px] rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
+          style={{
+            background: "linear-gradient(135deg, var(--border-start), var(--border-end))",
+          }}
+        >
+          {/* Actual Gradient Logic */}
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] dark:from-[rgba(0,240,255,0.3)] dark:to-[rgba(112,0,255,0.3)] opacity-100" />
+
+          {/* Glass Content */}
+          <div className="relative bg-white/60 dark:bg-[#0A0A0C]/60 backdrop-blur-xl rounded-lg p-8 overflow-hidden">
             
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2 text-sm text-red-700">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
+            {/* A. HEADER */}
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                {/* UPDATED: Added dark:text-white */}
+                <h1 className="font-extrabold tracking-[0.25em] text-text-primary dark:text-white text-xl">VNDR</h1>
+                {/* UPDATED: Added dark:text-slate-400 for subheader */}
+                <p className={`font-mono text-[10px] font-bold mt-1 tracking-widest transition-colors ${error ? 'text-red-500' : 'text-text-secondary/50 dark:text-slate-400'}`}>
+                  {isInvite ? 'ESTABLISH CONNECTION' : (error ? 'CREDENTIALS REJECTED' : 'IDENTIFICATION REQUIRED')}
+                </p>
               </div>
-            )}
-
-            {success && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-start gap-2 text-sm text-green-700">
-                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{success}</span>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-text-secondary uppercase">Email Address</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
-                <input 
-                  type="email" 
-                  required
-                  className="w-full pl-9 pr-3 h-10 border border-border rounded-md text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+              <div className="relative flex items-center justify-center w-4 h-4">
+                <div className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-red-500 animate-pulse' : 'bg-[#10B981] animate-pulse'}`} />
+                {error && <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping" />}
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-text-secondary uppercase">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
-                <input 
-                  type="password" 
-                  required
-                  className="w-full pl-9 pr-3 h-10 border border-border rounded-md text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+            {/* B. TOGGLE (Hidden in Invite Mode) */}
+            {!isInvite && (
+              <div className="relative flex bg-black/5 dark:bg-white/5 p-1 rounded-md mb-8">
+                <motion.div 
+                  className="absolute top-1 bottom-1 rounded-sm bg-white dark:bg-slate-700 shadow-sm"
+                  initial={false}
+                  animate={{ 
+                    left: mode === 'signin' ? 4 : '50%', 
+                    width: 'calc(50% - 4px)' 
+                  }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
+                <button 
+                  onClick={() => { setMode('signin'); setError(''); }}
+                  // UPDATED: Added dark:text-white/slate-400 logic for buttons
+                  className={`flex-1 relative z-10 text-xs font-bold py-2 text-center transition-colors ${mode === 'signin' ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white'}`}
+                >
+                  SIGN IN
+                </button>
+                <button 
+                  onClick={() => { setMode('signup'); setError(''); }}
+                  className={`flex-1 relative z-10 text-xs font-bold py-2 text-center transition-colors ${mode === 'signup' ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white'}`}
+                >
+                  SIGN UP
+                </button>
               </div>
-            </div>
+            )}
 
-            {isSignUp && (
-              <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
-                <label className="text-xs font-bold text-text-secondary uppercase">Confirm Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 w-4 h-4 text-text-secondary" />
-                  <input 
-                    type="password" 
-                    required
-                    className="w-full pl-9 pr-3 h-10 border border-border rounded-md text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+            {/* C. FORM */}
+            <form onSubmit={handleAuth} className="space-y-6">
+              <InputSlot 
+                label="EMAIL ADDRESS" 
+                value={email}
+                onChange={(e: any) => setEmail(e.target.value)}
+                readOnly={isInvite}
+                icon={isInvite ? Lock : undefined}
+                autoFocus={!isInvite}
+              />
+
+              <AnimatePresence mode='popLayout'>
+                <motion.div
+                  key="password-field"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  layout
+                >
+                  <InputSlot 
+                    label={isInvite ? "SET SECURE PASSWORD" : "PASSWORD"}
+                    type="password"
+                    value={password}
+                    onChange={(e: any) => setPassword(e.target.value)}
                   />
+                </motion.div>
+
+                {isSignUp && (
+                  <motion.div
+                    key="confirm-field"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden pt-6"
+                  >
+                    <InputSlot 
+                      label="CONFIRM PASSWORD"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e: any) => setConfirmPassword(e.target.value)}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* D. ACTION BUTTON */}
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className={`
+                  relative w-full h-12 mt-4 rounded-sm font-bold text-xs tracking-widest uppercase overflow-hidden transition-all
+                  ${isLoading ? 'cursor-not-allowed opacity-80' : 'hover:opacity-90 active:scale-[0.99]'}
+                  bg-[#0F172A] text-white dark:bg-[#F8FAFC] dark:text-black
+                `}
+              >
+                <div className="relative z-10 flex items-center justify-center gap-2">
+                  {isLoading ? "SCANNING..." : (isInvite ? "ACTIVATE PROFILE" : (isSignUp ? "INITIALIZE ACCOUNT" : "AUTHENTICATE"))}
                 </div>
-              </div>
-            )}
+                
+                {isLoading && (
+                  <motion.div 
+                    initial={{ x: '-100%' }}
+                    animate={{ x: '200%' }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-black/10"
+                  />
+                )}
+              </button>
+            </form>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-brand hover:bg-brand-dark text-white h-10 rounded-md font-bold text-sm shadow-sm transition-colors flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? (
-                <span className="opacity-70">Processing...</span>
-              ) : isSignUp ? (
-                <>Create Account <UserPlus className="w-4 h-4" /></>
-              ) : (
-                <>Sign In <ArrowRight className="w-4 h-4" /></>
+            {/* Error Message Display */}
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4 flex items-start gap-2 text-xs text-red-500 font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-sm border border-red-100 dark:border-red-900/30"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
               )}
-            </button>
-          </form>
+            </AnimatePresence>
 
-          {!isSignUp && (
-            <div className="mt-4 text-center">
-              <a href="#" className="text-xs text-text-secondary hover:text-brand transition-colors">Forgot your password?</a>
-            </div>
-          )}
+          </div>
         </div>
-        
-        {/* Footer */}
-        <div className="bg-slate-50 p-4 text-center border-t border-border">
-          <p className="text-xs text-text-secondary">
-            &copy; 2025 LPM Property Management
-          </p>
-        </div>
+      </motion.div>
 
+      {/* 5. FOOTER ANCHOR */}
+      <div className="fixed bottom-0 left-0 right-0 p-6 flex justify-between items-end text-[10px] font-mono uppercase text-text-secondary/40 select-none pointer-events-none">
+        <div>
+          SECURE CONNECTION // TLS 1.3
+        </div>
+        {/* UPDATED: Added dark:text-slate-400 for links */}
+        <div className="flex gap-4 pointer-events-auto dark:text-slate-400">
+          <a href="#" className="hover:text-text-primary dark:hover:text-white hover:underline transition-colors">Help</a>
+          <a href="#" className="hover:text-text-primary dark:hover:text-white hover:underline transition-colors">Forgot Credentials?</a>
+        </div>
       </div>
+
     </div>
   );
 }
