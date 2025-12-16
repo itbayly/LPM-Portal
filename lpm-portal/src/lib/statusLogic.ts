@@ -1,4 +1,4 @@
-import type { LegacyProperty, PropertyStatus } from '../dataModel'; // UPDATED
+import type { LegacyProperty, PropertyStatus } from '../dataModel';
 
 // Helper to parse dates safely
 const parseDate = (d: string | undefined) => {
@@ -7,13 +7,7 @@ const parseDate = (d: string | undefined) => {
   return isNaN(date.getTime()) ? null : date;
 };
 
-// Helper to get days difference
-const daysBetween = (d1: Date, d2: Date) => {
-  const oneDay = 24 * 60 * 60 * 1000;
-  return Math.round(Math.abs((d1.getTime() - d2.getTime()) / oneDay));
-};
-
-export function calculatePropertyStatus(property: LegacyProperty): PropertyStatus { // UPDATED TYPE
+export function calculatePropertyStatus(property: LegacyProperty): PropertyStatus {
   const today = new Date();
 
   // 1. HARD OVERRIDES (Manual/Workflow Flags)
