@@ -1,4 +1,4 @@
-import type { Property, UserProfile } from '../dataModel';
+import type { LegacyProperty, UserProfile } from '../dataModel'; // UPDATED
 
 // --- ROSTER DATA (Generated from User List.xlsx) ---
 export const REAL_USERS: UserProfile[] = [
@@ -38,19 +38,12 @@ export const REAL_USERS: UserProfile[] = [
   { name: "Nancy Hernandez", email: "nancy.hernandez@lpm.com", role: "regional_pm" },
   { name: "Linda Johnson", email: "linda.johnson@lpm.com", role: "regional_pm" },
   { name: "Robert Miller", email: "robert.miller@lpm.com", role: "regional_pm" },
-  // PMs will be auto-created upon first login if not explicitly listed here, 
-  // but we can add them to be safe or rely on the roster check logic.
 ];
 
-// --- PROPERTY DATA (Generated from Property List.xlsx) ---
-export const REAL_PROPERTIES: Property[] = [
-  // ... (Full list of properties)
-  // I will inject the JSON data here. Since the list is long, I'm providing a function to generate it from your CSV data structure
-  // For the purpose of this file, I'll paste the converted JSON below.
-];
+// --- PROPERTY DATA ---
+export const REAL_PROPERTIES: LegacyProperty[] = []; // UPDATED TYPE
 
 // Helper to populate REAL_PROPERTIES from your raw data structure
-// (In a real app, this would be the CSV parser output)
 const RAW_DATA = [
   // ... (I am pasting the processed JSON data from your file below)
   {
@@ -73,7 +66,6 @@ const RAW_DATA = [
     pm: { name: "David Chang", email: "david.chang@lpm.com", phone: "425-582-3646" },
     units: "7", vendor: "Schindler", acct: "4100132543", billTo: "5000107427", bldgId: "S109907-01", price: "2926", start: "2022-04-24", end: "2026-10-11", init: "84", renew: "84", cancelBefore: "120", cancelAfter: "90", amName: "Isaiah Bayly", amPhone: "484-348-6947", amEmail: "isaiah.bayly@schindler.com", national: ""
   },
-  // ... (I will include more sample rows to ensure the grid fills up)
 ];
 
 // Hydrate the RAW_DATA into full Property objects
@@ -87,7 +79,7 @@ REAL_PROPERTIES.push(...RAW_DATA.map(raw => ({
   zip: raw.zip,
   locationPhone: raw.phone,
   unitCount: Number(raw.units) || 0,
-  status: raw.vendor ? 'active' : 'missing_data', // Logic: If vendor exists, it's active. Else missing.
+  status: raw.vendor ? 'active' : 'missing_data', 
   
   hierarchy: {
     area: raw.area,
@@ -106,7 +98,7 @@ REAL_PROPERTIES.push(...RAW_DATA.map(raw => ({
   
   vendor: {
     name: raw.vendor || "Unknown",
-    rating: raw.vendor ? 8 : 0, // Default rating for known vendors
+    rating: raw.vendor ? 8 : 0, 
     currentPrice: Number(raw.price) || 0,
     accountNumber: raw.acct,
     serviceInstructions: "Contact Service Provider"
@@ -126,4 +118,4 @@ REAL_PROPERTIES.push(...RAW_DATA.map(raw => ({
   autoRenews: true,
   onNationalContract: raw.national === "Yes",
   contacts: []
-} as Property)));
+} as LegacyProperty))); // UPDATED CAST

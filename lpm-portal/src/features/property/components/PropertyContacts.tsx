@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Plus, Trash2, Edit2, Star, X, Mail, Phone } from 'lucide-react';
+import { User, Plus, Trash2, Edit2, Star, Mail, Phone } from 'lucide-react'; // REMOVED X
 import type { LegacyProperty, Contact } from '../../../dataModel';
 
 interface Props {

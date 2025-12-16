@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { 
-  Building, ArrowLeft, AlertCircle, FileText, 
+  ArrowLeft, AlertCircle, FileText, 
   Users, DollarSign, Activity, Lock 
 } from 'lucide-react';
 import { StatusPill } from '../../components/ui/StatusPill';
@@ -115,12 +115,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       }
     });
     setIsWizardOpen(false);
-  };
-
-  const confirmNoContract = () => {
-    if(confirm("Confirm that this property has NO service contract? This will remove it from compliance lists.")) {
-      onUpdate(property.id, { status: 'service_contract_needed' });
-    }
   };
 
   // --- BANNER LOGIC ---

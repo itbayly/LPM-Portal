@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { AlertTriangle, Calendar, Download, Ban, ChevronDown, Edit2, X, Clock } from 'lucide-react';
+import { AlertTriangle, Calendar, Ban, ChevronDown, Edit2, X, Clock } from 'lucide-react'; // REMOVED Download
 import type { LegacyProperty, UserProfile } from '../../../dataModel';
-import { cn } from '../../../lib/utils';
+// REMOVED unused 'cn' import
 
 interface Props {
   property: LegacyProperty;
@@ -32,7 +32,7 @@ const formatDate = (dateStr: string | undefined) => {
   return `${parts[1]}/${parts[2]}/${parts[0]}`;
 };
 
-export default function PropertyCancellation({ property, profile, onUpdate }: Props) {
+export default function PropertyCancellation({ property, onUpdate }: Props) { // REMOVED profile from props
   const [isCalendarMenuOpen, setIsCalendarMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 

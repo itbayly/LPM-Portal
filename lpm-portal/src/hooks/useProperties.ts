@@ -103,7 +103,7 @@ export function useProperties() {
     // Optional implementation
   };
 
-  const clearDatabase = async (options: any) => {
+  const clearDatabase = async (_options: any) => { // PREFIXED WITH _
     // Optional implementation
   };
 

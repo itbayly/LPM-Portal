@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
-  User, Trash2, Shield, X, Search, Edit2, Save, 
-  Building, ChevronRight, Phone, Mail, ArrowLeft 
+  Trash2, Shield, X, Search, Edit2, Save, 
+  Building, ChevronRight, Mail, ArrowLeft // REMOVED User, Phone
 } from 'lucide-react';
 import { useUsers } from '../../hooks/useUsers';
 import { useProperties } from '../../hooks/useProperties';
@@ -255,7 +255,7 @@ export default function UserManagement({ onBack }: UserManagementProps) {
                 {isEditing ? (
                   <div className="relative group">
                     <select 
-                      className="w-full bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10 rounded-t-sm px-3 py-2 text-sm text-text-primary dark:text-white outline-none cursor-pointer"
+                      className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-t-sm px-3 py-2 text-sm text-text-primary dark:text-white outline-none cursor-pointer"
                       value={editForm.role}
                       onChange={(e) => setEditForm({
                         ...editForm, 

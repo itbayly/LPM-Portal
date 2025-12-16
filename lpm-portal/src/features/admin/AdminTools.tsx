@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useProperties } from '../../hooks/useProperties';
 import { Trash2, Database, ShieldAlert, X, ChevronRight, Terminal } from 'lucide-react';
-import { cn } from '../../lib/utils';
+// REMOVED UNUSED 'cn' IMPORT
 
 export default function AdminTools() {
   const { seedDatabase, clearDatabase, loading } = useProperties(); 

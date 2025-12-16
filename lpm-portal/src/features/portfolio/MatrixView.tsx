@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { 
   Building2, Thermometer, ShieldCheck, Zap, Lock, 
-  MoreHorizontal, ArrowUpRight 
+  ArrowUpRight 
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { LegacyProperty } from '../../dataModel';

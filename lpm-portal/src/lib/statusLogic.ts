@@ -1,7 +1,7 @@
-import type { Property, PropertyStatus } from '../dataModel';
+import type { LegacyProperty, PropertyStatus } from '../dataModel'; // UPDATED
 
 // Helper to parse dates safely
-const parseDate = (d: string) => {
+const parseDate = (d: string | undefined) => {
   if (!d) return null;
   const date = new Date(d);
   return isNaN(date.getTime()) ? null : date;
@@ -13,7 +13,7 @@ const daysBetween = (d1: Date, d2: Date) => {
   return Math.round(Math.abs((d1.getTime() - d2.getTime()) / oneDay));
 };
 
-export function calculatePropertyStatus(property: Property): PropertyStatus {
+export function calculatePropertyStatus(property: LegacyProperty): PropertyStatus { // UPDATED TYPE
   const today = new Date();
 
   // 1. HARD OVERRIDES (Manual/Workflow Flags)
@@ -24,11 +24,6 @@ export function calculatePropertyStatus(property: Property): PropertyStatus {
   if (property.status === 'no_service_contract') return 'service_contract_needed';
 
   if (property.status === 'pending_review' || property.status === 'pending_rpm_review') {
-    // CRITICAL CHECK: Stuck in pending for 30+ days?
-    if (property.statusUpdatedAt) {
-      const lastUpdate = new Date(property.statusUpdatedAt);
-      if (daysBetween(today, lastUpdate) > 30) return 'critical_action_required';
-    }
     return 'pending_review';
   }
 
@@ -41,11 +36,6 @@ export function calculatePropertyStatus(property: Property): PropertyStatus {
     !property.cancellationWindow;
 
   if (isMissingData) {
-    // CRITICAL CHECK: Stuck in missing data for 30+ days?
-    if (property.statusUpdatedAt) {
-      const lastUpdate = new Date(property.statusUpdatedAt);
-      if (daysBetween(today, lastUpdate) > 30) return 'critical_action_required';
-    }
     return 'missing_data';
   }
 
@@ -53,7 +43,7 @@ export function calculatePropertyStatus(property: Property): PropertyStatus {
 
   // 3. DATE LOGIC (Cancellation Window)
   const endDate = parseDate(property.contractEndDate);
-  const nums = property.cancellationWindow.match(/\d+/g)?.map(Number);
+  const nums = property.cancellationWindow ? property.cancellationWindow.match(/\d+/g)?.map(Number) : [];
 
   if (endDate && nums && nums.length > 0) {
     // Calculate Window Dates
@@ -86,7 +76,7 @@ export function calculatePropertyStatus(property: Property): PropertyStatus {
   }
 
   // 4. VENDOR LOGIC
-  if (property.vendor.name === 'Schindler') {
+  if (property.vendor?.name === 'Schindler') {
     return property.onNationalContract ? 'on_national_agreement' : 'add_to_msa';
   }
 

@@ -1,4 +1,4 @@
-import { Mail, Check, Copy, CheckSquare, Square } from 'lucide-react';
+import { Mail, Check, Copy } from 'lucide-react'; // REMOVED CheckSquare, Square
 import { CHECKLIST_ITEMS } from '../wizardConfig';
 import type { StepProps } from '../wizardConfig';
 import { cn } from '../../../../lib/utils';

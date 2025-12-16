@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // <--- Added setDoc
+import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { auth, db } from '../../lib/firebase';
 import { Lock, AlertCircle, Sun, Moon } from 'lucide-react'; 
 import NoiseOverlay from '../landing/components/NoiseOverlay';
@@ -121,7 +121,7 @@ export default function LoginPage() {
         if (password.length < 6) throw new Error("Passkey strength insufficient (min 6 chars).");
 
         // 1. Create Auth User
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, email, password); // REMOVED 'const cred =' assignment
         
         // 2. Create Profile Doc (Self-Service)
         // We assume anyone signing up from the login page is a standard "Property Manager"

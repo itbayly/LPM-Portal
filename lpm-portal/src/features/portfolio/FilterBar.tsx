@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { Property } from '../../dataModel';
+import type { LegacyProperty } from '../../dataModel';
 
 interface FilterBarProps {
-  properties: Property[]; // The full dataset to derive options from
+  properties: LegacyProperty[]; // UPDATED
   filters: {
     state: string;
     city: string;
@@ -29,7 +29,7 @@ export default function FilterBar({ properties, filters, onFilterChange, onClear
     )).sort();
 
     // Get Vendors
-    const vendors = Array.from(new Set(properties.map(p => p.vendor.name))).sort();
+    const vendors = Array.from(new Set(properties.map(p => p.vendor?.name || 'Unknown'))).sort();
 
     return { states, cities, vendors };
   }, [properties, filters.state]);
