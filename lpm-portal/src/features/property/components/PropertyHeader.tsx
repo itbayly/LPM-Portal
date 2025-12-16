@@ -1,9 +1,10 @@
-import { ArrowLeft, Building, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Building2, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { StatusPill } from '../../../components/ui/StatusPill';
-import type { Property } from '../../../dataModel';
+import type { LegacyProperty } from '../../../dataModel';
+import { cn } from '../../../lib/utils';
 
 interface PropertyHeaderProps {
-  property: Property;
+  property: LegacyProperty;
   onBack: () => void;
   onVerify: () => void;
 }
@@ -22,38 +23,75 @@ export default function PropertyHeader({ property, onBack, onVerify }: PropertyH
   ].includes(property.status);
 
   return (
-    <div className="flex items-center gap-md mb-lg shrink-0 pt-1">
-      <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-text-secondary">
-        <ArrowLeft className="w-6 h-6" />
-      </button>
-      <div>
-        {/* Company Mapping Breadcrumb */}
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-text-secondary mb-1">
-          <span>{property.hierarchy?.area || "Area"}</span>
-          <span className="text-slate-300">/</span>
-          <span>{property.hierarchy?.region || "Region"}</span>
-          <span className="text-slate-300">/</span>
-          <span>{property.hierarchy?.market || "Market"}</span>
+    <div className="flex flex-col gap-4 mb-6 shrink-0">
+      
+      {/* Navigation Breadcrumb */}
+      <div className="flex items-center gap-2">
+        <button 
+          onClick={onBack} 
+          className="group flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary dark:text-slate-500 hover:text-brand dark:hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-3 h-3 transition-transform group-hover:-translate-x-1" />
+          Back to Grid
+        </button>
+        <span className="text-text-secondary/20 dark:text-slate-700">/</span>
+        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary dark:text-slate-500">
+          {property.hierarchy?.market || "Unknown Market"}
+        </span>
+      </div>
+
+      {/* Main Glass Header */}
+      <div className="glass-panel p-1 rounded-xl flex items-center justify-between min-h-[80px]">
+        
+        <div className="flex items-center gap-6 px-6 py-2">
+          {/* Icon Box */}
+          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-gray-100 to-white dark:from-white/10 dark:to-white/5 border border-white/50 dark:border-white/10 shadow-sm flex items-center justify-center">
+            <Building2 className="w-6 h-6 text-text-primary dark:text-white opacity-80" />
+          </div>
+
+          {/* Title Block */}
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-2xl font-bold text-text-primary dark:text-white tracking-tight leading-none">
+                {property.name || "Unnamed Property"}
+              </h1>
+              <div className="flex gap-2">
+                <StatusPill status={property.status} />
+                {property.unitCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-sm bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/5 text-[10px] font-mono font-bold text-text-secondary dark:text-slate-300 flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-brand dark:bg-blue-400" />
+                    {property.unitCount} UNITS
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4 text-xs text-text-secondary dark:text-slate-400 font-medium">
+              <span className="flex items-center gap-1.5">
+                ID: <span className="font-mono text-text-primary dark:text-slate-300">{property.buildingId || "N/A"}</span>
+              </span>
+              <span className="w-1 h-1 rounded-full bg-current opacity-30" />
+              <span>{property.address}, {property.city}, {property.state} {property.zip}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <h1 className="text-[28px] font-bold text-text-primary leading-tight">{property.name || "Unnamed Property"}</h1>
-          {/* UPDATED: More Prominent Elevator Badge */}
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full border border-blue-200 flex items-center gap-1.5 shadow-sm">
-            <Building className="w-3.5 h-3.5" />
-            {property.unitCount || 0} Elevators
-          </span>
+        {/* Actions */}
+        <div className="pr-2">
+          <button 
+            onClick={onVerify} 
+            className={cn(
+              "h-10 px-5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-sm",
+              isVerified 
+                ? "bg-white dark:bg-white/10 border border-border dark:border-white/10 text-text-primary dark:text-white hover:bg-slate-50 dark:hover:bg-white/20" 
+                : "bg-brand hover:bg-brand-dark text-white shadow-brand/20"
+            )}
+          >
+            {isVerified ? <ShieldCheck className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+            {isVerified ? "Update Data" : "Verify Asset"}
+          </button>
         </div>
-        <p className="text-sm text-text-secondary">
-          {property.address}, {property.city}, {property.state} {property.zip}
-        </p>
-      </div>
-      <div className="ml-auto flex items-center gap-md">
-        <StatusPill status={property.status} />
-        <button onClick={onVerify} className="px-4 py-2 bg-brand text-white rounded-sm text-sm font-medium shadow-sm hover:bg-brand-dark flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" />
-          {isVerified ? "Update Information" : "Verify Data"}
-        </button>
+
       </div>
     </div>
   );

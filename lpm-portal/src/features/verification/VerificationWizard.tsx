@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { uploadFileToStorage } from '../../lib/storage';
-import type { Property, PropertyDocument } from '../../dataModel';
+import type { LegacyProperty, PropertyDocument } from '../../dataModel'; // UPDATED: Using LegacyProperty
 
-// --- MODULAR IMPORTS ---
 import { 
   CHECKLIST_ITEMS, 
   parseTerm 
 } from './wizard/wizardConfig';
 
-// Import TYPE explicitly to satisfy TypeScript strict mode
 import type { WizardFormData } from './wizard/wizardConfig';
 
 import Step1_Elevators from './wizard/steps/Step1_Elevators';
@@ -24,8 +22,9 @@ import Step8_Contacts from './wizard/steps/Step8_Contacts';
 import Step9_Upload from './wizard/steps/Step9_Upload';
 import Step10_Confirm from './wizard/steps/Step10_Confirm';
 
+// UPDATED INTERFACE
 interface VerificationWizardProps {
-  property: Property;
+  property: LegacyProperty; 
   isOpen: boolean;
   onClose: () => void;
   onComplete: (data: any) => void;
@@ -315,63 +314,84 @@ ${userName}`;
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-[700px] h-[700px] rounded-lg shadow-lvl3 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+      <div className="bg-white/95 dark:bg-[#0A0A0C]/95 backdrop-blur-md w-full max-w-[700px] h-[700px] rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300 border border-white/20 dark:border-white/10 overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
         
         {/* HEADER */}
-        <div className="p-6 border-b border-border bg-slate-50 flex justify-between items-center">
+        <div className="p-6 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] flex justify-between items-center relative overflow-hidden">
+          {/* Subtle Glow Effect */}
+          <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand/50 to-transparent" />
+          
           <div>
-            <h2 className="text-xl font-bold text-text-primary">Data Verification</h2>
-            <p className="text-sm text-text-secondary">Step {step} of 10</p>
+            <h2 className="text-sm font-bold font-mono text-text-primary dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-brand dark:text-blue-400" /> 
+              Verification Protocol
+            </h2>
+            <p className="text-xs text-text-secondary dark:text-slate-400 mt-1">Step {step} of 10: {property.name}</p>
           </div>
           {!showEmailScreen && (
-            <button onClick={onClose}><X className="w-6 h-6 text-text-secondary hover:text-text-primary" /></button>
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-secondary dark:text-slate-400 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
           )}
         </div>
 
-        {/* BODY (RENDER STEP COMPONENTS) */}
-        <div className="flex-1 overflow-y-auto p-8">
-          {step === 1 && <Step1_Elevators formData={formData} setFormData={setFormData} />}
-          {step === 2 && <Step2_Provider formData={formData} setFormData={setFormData} />}
-          {step === 3 && (
-            <Step3_Checklist 
-              formData={formData} 
-              setFormData={setFormData}
-              showEmailScreen={showEmailScreen}
-              checkedItems={checkedItems}
-              setCheckedItems={setCheckedItems}
-              handleCopyEmail={handleCopyEmail}
-              handleSavePartial={handleSavePartial}
-              emailCopied={emailCopied}
+        {/* BODY */}
+        <div className="flex-1 overflow-y-auto p-8 relative">
+          {/* Progress Bar */}
+          <div className="absolute top-0 left-0 w-full h-[2px] bg-black/5 dark:bg-white/5">
+            <div 
+              className="h-full bg-brand dark:bg-blue-400 transition-all duration-500 ease-out" 
+              style={{ width: `${(step / 10) * 100}%` }} 
             />
-          )}
-          {step === 4 && <Step4_VendorDetails formData={formData} setFormData={setFormData} />}
-          {step === 5 && <Step5_Billing formData={formData} setFormData={setFormData} />}
-          {step === 6 && <Step6_Terms formData={formData} setFormData={setFormData} />}
-          {step === 7 && <Step7_Termination formData={formData} setFormData={setFormData} />}
-          {step === 8 && <Step8_Contacts formData={formData} setFormData={setFormData} />}
-          {step === 9 && <Step9_Upload formData={formData} setFormData={setFormData} />}
-          {step === 10 && <Step10_Confirm formData={formData} setFormData={setFormData} />}
+          </div>
+
+          <div className="mt-4">
+            {step === 1 && <Step1_Elevators formData={formData} setFormData={setFormData} />}
+            {step === 2 && <Step2_Provider formData={formData} setFormData={setFormData} />}
+            {step === 3 && (
+              <Step3_Checklist 
+                formData={formData} 
+                setFormData={setFormData}
+                showEmailScreen={showEmailScreen}
+                checkedItems={checkedItems}
+                setCheckedItems={setCheckedItems}
+                handleCopyEmail={handleCopyEmail}
+                handleSavePartial={handleSavePartial}
+                emailCopied={emailCopied}
+              />
+            )}
+            {step === 4 && <Step4_VendorDetails formData={formData} setFormData={setFormData} />}
+            {step === 5 && <Step5_Billing formData={formData} setFormData={setFormData} />}
+            {step === 6 && <Step6_Terms formData={formData} setFormData={setFormData} />}
+            {step === 7 && <Step7_Termination formData={formData} setFormData={setFormData} />}
+            {step === 8 && <Step8_Contacts formData={formData} setFormData={setFormData} />}
+            {step === 9 && <Step9_Upload formData={formData} setFormData={setFormData} />}
+            {step === 10 && <Step10_Confirm formData={formData} setFormData={setFormData} />}
+          </div>
         </div>
 
         {/* FOOTER */}
-        <div className="p-6 border-t border-border bg-slate-50 flex justify-between items-center">
+        <div className="p-6 border-t border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] flex justify-between items-center">
           {step > 1 && !showEmailScreen ? (
-            <button onClick={() => setStep(s => s - 1)} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-medium">
+            <button 
+              onClick={() => setStep(s => s - 1)} 
+              className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white transition-colors"
+            >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
-          ) : <div></div>}
+          ) : <div />}
 
           {!showEmailScreen && (
             <button 
               onClick={handleNext}
               disabled={!isStepValid() || isUploading}
-              className="px-6 py-2 bg-brand text-white rounded-md font-bold shadow-sm hover:bg-brand-dark flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-10 px-6 bg-brand hover:bg-brand-dark text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand/20 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none hover:scale-105 active:scale-95"
             >
               {isUploading ? (
-                <>Uploading... <Loader2 className="w-4 h-4 animate-spin" /></>
+                <>Processing... <Loader2 className="w-4 h-4 animate-spin" /></>
               ) : step === 10 ? (
-                (property.status === 'active_contract' || property.status === 'on_national_agreement' ? "Update Information" : "Verify & Complete")
+                (property.status === 'active_contract' || property.status === 'on_national_agreement' ? "Confirm Updates" : "Complete Verification")
               ) : (
                 <>Next <ChevronRight className="w-4 h-4" /></>
               )}

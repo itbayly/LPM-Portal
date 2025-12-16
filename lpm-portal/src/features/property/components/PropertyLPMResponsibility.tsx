@@ -1,54 +1,51 @@
-import { User, Mail, Phone } from 'lucide-react';
-import type { Property } from '../../../dataModel';
+import { User, Mail, Phone, Shield } from 'lucide-react';
+import type { LegacyProperty } from '../../../dataModel';
 
 interface Props {
-  property: Property;
+  property: LegacyProperty;
 }
 
 export default function PropertyLPMResponsibility({ property }: Props) {
   const manager = property.manager || {};
   const regionalPm = property.regionalPm || {};
 
-  return (
-    <div className="bg-surface rounded-md shadow-lvl1 p-lg border border-border">
-      <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-md">LPM Responsibility</h3>
+  const PersonnelRow = ({ role, data }: { role: string, data: any }) => (
+    <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors group">
+      {/* Avatar / Icon */}
+      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center shadow-inner">
+        <User className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+      </div>
       
-      {/* Property Manager Info */}
-      <div className="flex items-start gap-md mb-4">
-        <div className="p-2 bg-slate-100 rounded-full">
-          <User className="w-5 h-5 text-slate-500" />
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-baseline">
+          <p className="text-sm font-bold text-text-primary dark:text-white truncate">{data.name || "Unassigned"}</p>
+          <span className="text-[10px] font-mono text-text-secondary dark:text-slate-500 uppercase tracking-wider">{role}</span>
         </div>
-        <div>
-          <p className="text-sm font-bold text-text-primary">{manager.name || "Unassigned"}</p>
-          <p className="text-xs text-text-secondary">Property Manager</p>
-          <div className="mt-sm space-y-xs">
-            <div className="flex items-center gap-xs text-xs text-brand">
-              <Mail className="w-3 h-3" /> {manager.email || "-"}
-            </div>
-            <div className="flex items-center gap-xs text-xs text-text-secondary">
-              <Phone className="w-3 h-3" /> {manager.phone || "-"}
-            </div>
+        
+        <div className="flex items-center gap-4 mt-1 opacity-60 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1.5 text-xs text-text-secondary dark:text-slate-300">
+            <Mail className="w-3 h-3" />
+            <span className="truncate max-w-[120px]">{data.email || "-"}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-text-secondary dark:text-slate-300">
+            <Phone className="w-3 h-3" />
+            <span>{data.phone || "-"}</span>
           </div>
         </div>
       </div>
+    </div>
+  );
 
-      {/* Regional PM Info */}
-      <div className="flex items-start gap-md pt-4 border-t border-border">
-        <div className="p-2 bg-slate-100 rounded-full">
-          <User className="w-5 h-5 text-slate-500" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-text-primary">{regionalPm.name || "Unassigned"}</p>
-          <p className="text-xs text-text-secondary">Regional Property Manager</p>
-          <div className="mt-sm space-y-xs">
-            <div className="flex items-center gap-xs text-xs text-brand">
-              <Mail className="w-3 h-3" /> {regionalPm.email || "-"}
-            </div>
-            <div className="flex items-center gap-xs text-xs text-text-secondary">
-              <Phone className="w-3 h-3" /> {regionalPm.phone || "-"}
-            </div>
-          </div>
-        </div>
+  return (
+    <div className="glass-panel p-5 rounded-xl">
+      <h3 className="text-xs font-bold text-brand dark:text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+        <Shield className="w-4 h-4" /> Internal Team
+      </h3>
+      
+      <div className="space-y-1">
+        <PersonnelRow role="Manager" data={manager} />
+        <div className="h-[1px] bg-gradient-to-r from-transparent via-black/5 dark:via-white/10 to-transparent my-1" />
+        <PersonnelRow role="Regional PM" data={regionalPm} />
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { type User, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore'; 
 import { auth, db } from '../../lib/firebase';
 import type { UserProfile } from '../../dataModel';
 
@@ -20,45 +20,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let profileUnsubscribe: (() => void) | null = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       
+      // Reset profile listener on auth change
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+        profileUnsubscribe = null;
+      }
+
       if (currentUser && currentUser.email) {
-        // SECURITY CHECK: Look up the user in the seeded "Roster"
-        try {
-          const userRef = doc(db, "users", currentUser.email.toLowerCase());
-          const userSnap = await getDoc(userRef);
-          
-          if (userSnap.exists()) {
-            // User found! Load their Role and Scope
-            setProfile({ ...userSnap.data(), uid: currentUser.uid } as UserProfile);
+        // LISTENER: Subscribe to the user profile in real-time
+        const userRef = doc(db, "users", currentUser.email.toLowerCase());
+        
+        profileUnsubscribe = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists()) {
+            // FIX: Double cast (as unknown as UserProfile) to resolve type overlap error
+            setProfile({ ...docSnap.data(), uid: currentUser.uid } as unknown as UserProfile);
           } else {
-            // User NOT in roster -> Deny Access (or set to Guest)
-            console.warn("User not found in access roster:", currentUser.email);
+            // Profile doesn't exist yet (or was deleted)
             setProfile(null); 
           }
-        } catch (err) {
-          console.error("Error fetching profile:", err);
-        }
+          setLoading(false); // Done loading once we check DB
+        }, (err) => {
+          console.error("Profile subscription error:", err);
+          setLoading(false);
+        });
+
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      authUnsubscribe();
+      if (profileUnsubscribe) profileUnsubscribe();
+    };
   }, []);
 
   const logout = async () => {
     await signOut(auth);
-    setProfile(null);
+    // Profile will be cleared by the auth listener above
   };
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-canvas">
-        <div className="text-text-secondary font-medium animate-pulse">
+      <div className="h-screen w-screen flex items-center justify-center bg-canvas dark:bg-[#050507]">
+        <div className="text-text-secondary dark:text-slate-400 font-medium animate-pulse text-xs uppercase tracking-widest font-mono">
           Verifying Access Clearance...
         </div>
       </div>
@@ -71,7 +82,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       profile, 
       loading, 
       logout,
-      // Helper: Simple boolean to hide/show UI elements
       isAdmin: profile?.role === 'admin'
     }}>
       {children}

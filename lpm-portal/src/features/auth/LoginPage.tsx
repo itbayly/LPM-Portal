@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore'; // <--- Added setDoc
 import { auth, db } from '../../lib/firebase';
 import { Lock, AlertCircle, Sun, Moon } from 'lucide-react'; 
 import NoiseOverlay from '../landing/components/NoiseOverlay';
@@ -23,7 +23,6 @@ const InputSlot = ({
 
   return (
     <div className="relative group">
-      {/* UPDATED: Added dark:text-slate-400 for better label visibility */}
       <label className="text-[10px] font-bold uppercase tracking-wide text-text-secondary dark:text-slate-400 mb-1.5 block opacity-70">
         {label}
       </label>
@@ -44,12 +43,10 @@ const InputSlot = ({
           autoFocus={autoFocus}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          // UPDATED: Added dark:text-white to make input text visible
           className="w-full h-12 bg-transparent border-none outline-none text-sm px-3 text-text-primary dark:text-white font-mono placeholder:text-slate-400/50"
           spellCheck={false}
         />
         
-        {/* Animated Bottom Border */}
         <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-text-secondary/20">
           <motion.div 
             initial={{ width: "0%" }}
@@ -119,17 +116,28 @@ export default function LoginPage() {
       if (mode === 'signin') {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
+        // --- SIGN UP LOGIC ---
         if (password !== confirmPassword) throw new Error("Passkeys do not match.");
         if (password.length < 6) throw new Error("Passkey strength insufficient (min 6 chars).");
 
+        // 1. Create Auth User
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // 2. Create Profile Doc (Self-Service)
+        // We assume anyone signing up from the login page is a standard "Property Manager"
         const userRef = doc(db, "users", email.toLowerCase());
+        
+        // Only set if it doesn't exist (prevent overwriting if invite existed)
         const userSnap = await getDoc(userRef);
-
         if (!userSnap.exists()) {
-          throw new Error("Identity not recognized in roster.");
+          await setDoc(userRef, {
+            email: email.toLowerCase(),
+            name: email.split('@')[0], // Default name from email
+            role: 'pm',                // Default role
+            scope: { type: 'portfolio', value: 'personal' }, // Default scope
+            createdAt: new Date().toISOString()
+          });
         }
-
-        await createUserWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
       console.error(err);
@@ -146,7 +154,6 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden font-sans selection:bg-brand selection:text-white flex items-center justify-center bg-[#F2F4F6] dark:bg-[#050507] transition-colors duration-500">
       
-      {/* 1. ENVIRONMENT LAYERS */}
       <NoiseOverlay />
       
       <div className="fixed -bottom-40 -left-40 w-[600px] h-[600px] bg-[#E0F2FE] rounded-full blur-3xl opacity-40 pointer-events-none dark:hidden mix-blend-multiply" />
@@ -184,25 +191,19 @@ export default function LoginPage() {
         }}
         className="relative z-10 w-[90%] max-w-[420px]"
       >
-        {/* Border Gradient Wrapper */}
         <div 
           className="p-[1px] rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
           style={{
             background: "linear-gradient(135deg, var(--border-start), var(--border-end))",
           }}
         >
-          {/* Actual Gradient Logic */}
           <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] dark:from-[rgba(0,240,255,0.3)] dark:to-[rgba(112,0,255,0.3)] opacity-100" />
 
-          {/* Glass Content */}
           <div className="relative bg-white/60 dark:bg-[#0A0A0C]/60 backdrop-blur-xl rounded-lg p-8 overflow-hidden">
             
-            {/* A. HEADER */}
             <div className="flex justify-between items-start mb-8">
               <div>
-                {/* UPDATED: Added dark:text-white */}
                 <h1 className="font-extrabold tracking-[0.25em] text-text-primary dark:text-white text-xl">VNDR</h1>
-                {/* UPDATED: Added dark:text-slate-400 for subheader */}
                 <p className={`font-mono text-[10px] font-bold mt-1 tracking-widest transition-colors ${error ? 'text-red-500' : 'text-text-secondary/50 dark:text-slate-400'}`}>
                   {isInvite ? 'ESTABLISH CONNECTION' : (error ? 'CREDENTIALS REJECTED' : 'IDENTIFICATION REQUIRED')}
                 </p>
@@ -213,7 +214,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* B. TOGGLE (Hidden in Invite Mode) */}
             {!isInvite && (
               <div className="relative flex bg-black/5 dark:bg-white/5 p-1 rounded-md mb-8">
                 <motion.div 
@@ -227,7 +227,6 @@ export default function LoginPage() {
                 />
                 <button 
                   onClick={() => { setMode('signin'); setError(''); }}
-                  // UPDATED: Added dark:text-white/slate-400 logic for buttons
                   className={`flex-1 relative z-10 text-xs font-bold py-2 text-center transition-colors ${mode === 'signin' ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white'}`}
                 >
                   SIGN IN
@@ -241,7 +240,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* C. FORM */}
             <form onSubmit={handleAuth} className="space-y-6">
               <InputSlot 
                 label="EMAIL ADDRESS" 
@@ -286,7 +284,6 @@ export default function LoginPage() {
                 )}
               </AnimatePresence>
 
-              {/* D. ACTION BUTTON */}
               <button 
                 type="submit"
                 disabled={isLoading}
@@ -311,7 +308,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Error Message Display */}
             <AnimatePresence>
               {error && (
                 <motion.div 
@@ -330,12 +326,10 @@ export default function LoginPage() {
         </div>
       </motion.div>
 
-      {/* 5. FOOTER ANCHOR */}
       <div className="fixed bottom-0 left-0 right-0 p-6 flex justify-between items-end text-[10px] font-mono uppercase text-text-secondary/40 select-none pointer-events-none">
         <div>
           SECURE CONNECTION // TLS 1.3
         </div>
-        {/* UPDATED: Added dark:text-slate-400 for links */}
         <div className="flex gap-4 pointer-events-auto dark:text-slate-400">
           <a href="#" className="hover:text-text-primary dark:hover:text-white hover:underline transition-colors">Help</a>
           <a href="#" className="hover:text-text-primary dark:hover:text-white hover:underline transition-colors">Forgot Credentials?</a>

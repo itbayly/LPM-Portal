@@ -1,9 +1,14 @@
 import { useState, useMemo } from 'react';
-import { Building, ArrowLeft, AlertCircle } from 'lucide-react';
+import { 
+  Building, ArrowLeft, AlertCircle, FileText, 
+  Users, DollarSign, Activity, Lock 
+} from 'lucide-react';
 import { StatusPill } from '../../components/ui/StatusPill';
 import VerificationWizard from '../verification/VerificationWizard';
 import { useAuth } from '../auth/AuthContext';
-import type { Property } from '../../dataModel';
+import type { LegacyProperty } from '../../dataModel';
+import { cn } from '../../lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- COMPONENT IMPORTS ---
 import PropertyHeader from './components/PropertyHeader';
@@ -15,12 +20,12 @@ import PropertyContacts from './components/PropertyContacts';
 import PropertyDocuments from './components/PropertyDocuments';
 
 interface PropertyDetailProps {
-  property: Property;
+  property: LegacyProperty;
   onBack: () => void;
-  onUpdate: (id: string, data: Partial<Property>) => void;
+  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
 }
 
-// Helper for date parsing (kept here for banner logic)
+// Helper for date parsing
 const parseDateSafe = (dateStr: string | undefined): Date | null => {
   if (!dateStr) return null;
   let d = new Date(dateStr);
@@ -36,19 +41,28 @@ const parseDateSafe = (dateStr: string | undefined): Date | null => {
   return null;
 };
 
+// --- TAB CONFIG ---
+const TABS = [
+  { id: 'intel', label: 'Intelligence', icon: Activity },
+  { id: 'financials', label: 'Financials', icon: DollarSign },
+  { id: 'team', label: 'Team', icon: Users },
+  { id: 'docs', label: 'Repository', icon: FileText },
+];
+
 export default function PropertyDetail({ property, onBack, onUpdate }: PropertyDetailProps) {
   const { profile } = useAuth();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('intel');
 
   // --- WIZARD COMPLETION LOGIC ---
   const handleVerificationComplete = (data: any) => {
-    // 1. Merge new documents if any
+    // 1. Merge new documents
     let updatedDocs = property.documents || [];
     if (data.newDocuments && data.newDocuments.length > 0) {
       updatedDocs = [...updatedDocs, ...data.newDocuments];
     }
 
-    // 2. Handle "No Elevators" case
+    // 2. Handle "No Elevators"
     if (data.status === 'no_elevators' && data.clearData) {
       onUpdate(property.id, {
         status: 'no_elevators',
@@ -61,13 +75,12 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
         initialTerm: '',
         renewalTerm: '',
         billTo: '',
-        buildingId: ''
       });
       setIsWizardOpen(false);
       return;
     }
 
-    // 3. Handle "Pending Review" case
+    // 3. Handle "Pending Review"
     if (data.status === 'pending_review') {
       onUpdate(property.id, { status: 'pending_review' });
       setIsWizardOpen(false);
@@ -79,7 +92,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
     onUpdate(property.id, {
       status: data.status,
       unitCount: data.unitCount,
-      // FIX: Ensure AutoRenews boolean is saved so Cancellation Card logic works
       autoRenews: data.autoRenews, 
       contractStartDate: data.contractStart,
       contractEndDate: data.calculatedEnd,
@@ -92,7 +104,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       priceCap: data.priceCap, 
       earlyTerminationPenalty: data.penaltyValue, 
       billTo: data.billTo,
-      buildingId: data.buildingId,
       vendor: {
         ...property.vendor,
         name: data.vendorName,
@@ -115,7 +126,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
   // --- BANNER LOGIC ---
   const showBanner = useMemo(() => {
     if (!property.contractEndDate || !property.cancellationWindow) return false;
-    // Don't show banner if it doesn't auto-renew
     if (property.autoRenews === false) return false;
 
     try {
@@ -125,8 +135,8 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       if (!endDate) return false;
       
       const today = new Date();
-      
       let startWindow = new Date(endDate);
+      
       if (nums.length >= 2) {
         const maxDays = Math.max(...nums);
         startWindow.setDate(endDate.getDate() - maxDays);
@@ -137,7 +147,6 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
       
       const alertStart = new Date(startWindow);
       alertStart.setDate(startWindow.getDate() - 30); 
-      
       const endWindow = new Date(endDate);
       const minDays = nums.length >= 2 ? Math.min(...nums) : nums[0];
       endWindow.setDate(endDate.getDate() - minDays);
@@ -150,22 +159,34 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
   // --- VIEW: NO ELEVATORS ---
   if (property.status === 'no_elevators') {
     return (
-      <div className="flex flex-col h-full bg-canvas p-6">
+      <div className="flex flex-col h-full p-6 animate-in fade-in">
         <div className="mb-6 flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-full text-text-secondary"><ArrowLeft className="w-6 h-6" /></button>
-          <h1 className="text-2xl font-bold text-text-primary">{property.name}</h1>
+          <button onClick={onBack} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-text-secondary dark:text-slate-400 transition-colors"><ArrowLeft className="w-6 h-6" /></button>
+          <h1 className="text-2xl font-bold text-text-primary dark:text-white">{property.name}</h1>
           <StatusPill status="no_elevators" />
         </div>
-        <div className="bg-surface border border-border rounded-md p-10 text-center shadow-sm">
-          <Building className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-text-primary mb-2">No Elevators on Site</h3>
-          <p className="text-text-secondary max-w-md mx-auto">
-            This property has been verified as having no vertical transportation assets. No further tracking is required.
-          </p>
-          <button onClick={() => setIsWizardOpen(true)} className="mt-6 text-sm text-brand font-bold hover:underline">
-            Mistake? Re-verify Data
-          </button>
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="glass-panel p-16 text-center rounded-2xl max-w-md w-full relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-white dark:from-white/5 dark:to-transparent opacity-50" />
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="w-20 h-20 bg-slate-100 dark:bg-white/10 rounded-full flex items-center justify-center mb-6">
+                <Lock className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+              </div>
+              <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Assets Locked</h3>
+              <p className="text-text-secondary dark:text-slate-400 mb-8 leading-relaxed">
+                This property has been verified as having no vertical transportation assets. Tracking is disabled.
+              </p>
+              <button 
+                onClick={() => setIsWizardOpen(true)} 
+                className="text-xs text-brand dark:text-blue-400 font-bold hover:underline uppercase tracking-widest"
+              >
+                Re-open Investigation
+              </button>
+            </div>
+          </div>
         </div>
+
         {isWizardOpen && (
           <VerificationWizard 
             property={property}
@@ -180,7 +201,7 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
 
   // --- VIEW: MAIN DASHBOARD ---
   return (
-    <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
+    <div className="flex flex-col h-full overflow-hidden relative">
       
       {/* 1. Header */}
       <PropertyHeader 
@@ -189,68 +210,97 @@ export default function PropertyDetail({ property, onBack, onUpdate }: PropertyD
         onVerify={() => setIsWizardOpen(true)} 
       />
 
-      {/* 2. Banners */}
+      {/* 2. Banners (Floating) */}
       {showBanner && (
-        <div className="mx-6 mb-6 p-4 bg-red-50 border-l-4 border-status-critical rounded-r-sm shadow-sm flex items-start gap-3 animate-in slide-in-from-top-2">
-          <AlertCircle className="w-5 h-5 text-status-critical shrink-0 mt-0.5" />
+        <div className="mx-1 mb-6 p-4 glass-panel border-l-4 border-l-red-500 rounded-r-xl flex items-start gap-4 animate-in slide-in-from-top-2">
+          <div className="p-2 bg-red-500/10 rounded-full">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+          </div>
           <div>
-            <h3 className="text-sm font-bold text-red-900 uppercase tracking-wide mb-1">Action Required: Cancellation Window Open</h3>
-            <p className="text-sm text-red-800">
-              This contract is currently in (or approaching) its cancellation window. 
+            <h3 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">Window Open</h3>
+            <p className="text-sm text-text-primary dark:text-slate-200">
+              Contract cancellation window is active. Automatic renewal is imminent.
             </p>
           </div>
         </div>
       )}
 
-      {property.status === 'pending_review' && (
-        <div className="mx-6 mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded-r-sm shadow-sm flex items-center justify-between animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-orange-600" />
-            <div>
-              <h3 className="text-sm font-bold text-orange-900 uppercase tracking-wide">Pending Review: No Service Provider</h3>
-              <p className="text-sm text-orange-800">Property Manager indicates no service provider exists. Regional PM must confirm.</p>
-            </div>
-          </div>
-          {(profile?.role === 'regional_pm' || profile?.role === 'admin' || profile?.role === 'area_vp') && (
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setIsWizardOpen(true)}
-                className="px-3 py-1.5 bg-white border border-orange-200 text-orange-800 text-xs font-bold rounded shadow-sm hover:bg-orange-100"
-              >
-                Reject (Add Vendor)
-              </button>
-              <button 
-                onClick={confirmNoContract}
-                className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded shadow-sm hover:bg-orange-700"
-              >
-                Confirm No Contract
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. Main Grid Layout */}
-      <div className="flex-1 flex gap-lg min-h-0 overflow-hidden">
-        
-        {/* Left Column (Static Info) */}
-        <div className="w-[360px] flex-shrink-0 overflow-y-auto space-y-lg pr-2 pb-10">
-          <PropertyLPMResponsibility property={property} />
-          <PropertyVendorCard property={property} onUpdate={onUpdate} />
-        </div>
-
-        {/* Right Column (Dynamic Info) */}
-        <div className="flex-1 overflow-y-auto pr-2 pb-2xl space-y-6">
-          {/* UPDATED: Passing onUpdate to these two components */}
-          <PropertyFinancials property={property} onUpdate={onUpdate} />
-          <PropertyCancellation property={property} profile={profile} onUpdate={onUpdate} />
-          
-          <PropertyContacts property={property} onUpdate={onUpdate} />
-          <PropertyDocuments property={property} onUpdate={onUpdate} profile={profile} />
-        </div>
+      {/* 3. THE BINDER (Tabs) */}
+      <div className="flex items-center gap-2 mb-6 mx-1 overflow-x-auto pb-1">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "relative px-5 py-2.5 rounded-lg flex items-center gap-2.5 transition-all duration-300",
+                isActive 
+                  ? "bg-white dark:bg-white/10 shadow-sm text-brand dark:text-white ring-1 ring-black/5 dark:ring-white/10" 
+                  : "hover:bg-black/5 dark:hover:bg-white/5 text-text-secondary dark:text-slate-500 hover:text-text-primary dark:hover:text-slate-300"
+              )}
+            >
+              <Icon className={cn("w-4 h-4", isActive ? "text-brand dark:text-blue-400" : "opacity-70")} />
+              <span className="text-xs font-bold uppercase tracking-wide">{tab.label}</span>
+              {isActive && (
+                <motion.div 
+                  layoutId="activeTabIndicator"
+                  className="absolute bottom-0 left-2 right-2 h-[2px] bg-brand dark:bg-blue-400 rounded-t-full"
+                />
+              )}
+            </button>
+          )
+        })}
       </div>
 
-      {/* 4. Wizard Overlay */}
+      {/* 4. CONTENT STAGE */}
+      <div className="flex-1 overflow-y-auto px-1 pb-10 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="h-full"
+          >
+            {/* TAB: INTELLIGENCE */}
+            {activeTab === 'intel' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
+                <PropertyVendorCard property={property} onUpdate={onUpdate} />
+                <div className="space-y-6">
+                  <PropertyLPMResponsibility property={property} />
+                  <PropertyCancellation property={property} profile={profile} onUpdate={onUpdate} />
+                </div>
+              </div>
+            )}
+
+            {/* TAB: FINANCIALS */}
+            {activeTab === 'financials' && (
+              <div className="max-w-4xl">
+                <PropertyFinancials property={property} onUpdate={onUpdate} />
+              </div>
+            )}
+
+            {/* TAB: TEAM */}
+            {activeTab === 'team' && (
+              <div className="max-w-4xl">
+                <PropertyContacts property={property} onUpdate={onUpdate} />
+              </div>
+            )}
+
+            {/* TAB: REPOSITORY */}
+            {activeTab === 'docs' && (
+              <div className="max-w-4xl">
+                <PropertyDocuments property={property} onUpdate={onUpdate} profile={profile} />
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* 5. Wizard Overlay */}
       {isWizardOpen && (
         <VerificationWizard 
           property={property}

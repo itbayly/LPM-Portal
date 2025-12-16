@@ -3,63 +3,58 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import type { Property } from '../../dataModel';
+import type { LegacyProperty } from '../../dataModel';
 
 interface AnalyticsViewProps {
-  data: Property[];
+  data: LegacyProperty[];
 }
 
-// UPDATED: Color Mapping
+// THEME COLORS (Matches Tailwind Config)
 const COLORS = {
-  active_contract: '#2563EB',       // Blue
-  on_national_agreement: '#10B981', // Green
-  notice_due_soon: '#F59E0B',       // Amber
-  missing_data: '#94A3B8',          // Slate
-  pending_review: '#F97316',        // Orange
-  critical_action_required: '#EF4444', // Red
-  cancellation_window_open: '#DC2626', // Dark Red
-  add_to_msa: '#4F46E5',            // Indigo
-  service_contract_needed: '#BE123C', // Rose
-  no_elevators: '#E2E8F0',          // Light Gray
-  brand: '#2563EB',                 // Brand Blue
-  dark: '#1E293B'                   // Slate 900
+  brand: '#2563EB',       // Blue
+  success: '#10B981',     // Green
+  warning: '#F59E0B',     // Amber
+  danger: '#EF4444',      // Red
+  slate: '#64748B',       // Slate
+  dark: '#1E293B',        // Dark Slate
+  white: '#FFFFFF',
+  
+  // Specific Status Colors
+  status: {
+    active: '#3B82F6',
+    national: '#10B981',
+    critical: '#EF4444',
+    missing: '#94A3B8',
+    pending: '#F97316',
+  }
 };
 
 export default function AnalyticsView({ data }: AnalyticsViewProps) {
   
   // 1. PORTFOLIO HEALTH (Pie Chart)
   const healthData = useMemo(() => {
-    // Initialize counts for ALL new statuses
     const counts: Record<string, number> = { 
-      active_contract: 0,
-      on_national_agreement: 0,
-      notice_due_soon: 0,
-      missing_data: 0,
-      pending_review: 0,
-      critical_action_required: 0,
-      cancellation_window_open: 0,
-      add_to_msa: 0,
-      service_contract_needed: 0,
-      no_elevators: 0
+      active: 0,
+      national: 0,
+      critical: 0,
+      missing: 0,
+      other: 0
     };
 
     data.forEach(p => {
-      if (counts[p.status] !== undefined) {
-        counts[p.status]++;
-      }
+      if (p.status === 'on_national_agreement') counts.national++;
+      else if (p.status === 'active_contract') counts.active++;
+      else if (['critical', 'critical_action_required', 'cancellation_window_open'].includes(p.status)) counts.critical++;
+      else if (['missing_data', 'no_service_contract', 'service_contract_needed'].includes(p.status)) counts.missing++;
+      else counts.other++;
     });
     
     return [
-      { name: 'Active Contract', value: counts.active_contract, color: COLORS.active_contract },
-      { name: 'National Agreement', value: counts.on_national_agreement, color: COLORS.on_national_agreement },
-      { name: 'Notice Due', value: counts.notice_due_soon, color: COLORS.notice_due_soon },
-      { name: 'Critical Action', value: counts.critical_action_required, color: COLORS.critical_action_required },
-      { name: 'Window Open', value: counts.cancellation_window_open, color: COLORS.cancellation_window_open },
-      { name: 'Pending Review', value: counts.pending_review, color: COLORS.pending_review },
-      { name: 'No Contract', value: counts.service_contract_needed, color: COLORS.service_contract_needed },
-      { name: 'Add to MSA', value: counts.add_to_msa, color: COLORS.add_to_msa },
-      { name: 'Missing Data', value: counts.missing_data, color: COLORS.missing_data },
-      { name: 'No Elevators', value: counts.no_elevators, color: COLORS.no_elevators },
+      { name: 'Active', value: counts.active, color: COLORS.status.active },
+      { name: 'National', value: counts.national, color: COLORS.status.national },
+      { name: 'Critical', value: counts.critical, color: COLORS.status.critical },
+      { name: 'Missing', value: counts.missing, color: COLORS.status.missing },
+      { name: 'Other', value: counts.other, color: COLORS.status.pending },
     ].filter(d => d.value > 0);
   }, [data]);
 
@@ -68,7 +63,6 @@ export default function AnalyticsView({ data }: AnalyticsViewProps) {
     const spend: Record<string, number> = {};
     data.forEach(p => {
       if (p.status === 'no_elevators') return;
-
       const name = p.vendor?.name || "Unknown";
       const price = p.vendor?.currentPrice || 0;
       spend[name] = (spend[name] || 0) + (price * 12); 
@@ -80,12 +74,11 @@ export default function AnalyticsView({ data }: AnalyticsViewProps) {
       .slice(0, 5); 
   }, [data]);
 
-  // 3. EXPIRATION HORIZON (Timeline Bar Chart)
+  // 3. EXPIRATION HORIZON (Timeline)
   const expirationData = useMemo(() => {
     const years: Record<string, number> = {};
     data.forEach(p => {
       if (p.status === 'no_elevators' || p.status === 'service_contract_needed') return;
-
       if (p.contractEndDate) {
         const d = new Date(p.contractEndDate);
         const year = d.getFullYear();
@@ -94,26 +87,34 @@ export default function AnalyticsView({ data }: AnalyticsViewProps) {
         }
       }
     });
-
     return Object.entries(years)
       .map(([year, count]) => ({ year, count }))
       .sort((a, b) => Number(a.year) - Number(b.year)); 
   }, [data]);
 
-  if (data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-slate-400 p-10">
-        No data available for analysis.
-      </div>
-    );
-  }
+  // --- CUSTOM TOOLTIP ---
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white/90 dark:bg-black/90 backdrop-blur-md border border-black/5 dark:border-white/10 p-3 rounded-lg shadow-xl text-xs">
+          <p className="font-bold text-text-primary dark:text-white mb-1">{label}</p>
+          <p className="font-mono text-brand dark:text-blue-400">
+            {typeof payload[0].value === 'number' && payload[0].value > 1000 
+              ? `$${payload[0].value.toLocaleString()}` 
+              : payload[0].value}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-1 h-full overflow-y-auto">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-full overflow-y-auto pb-6">
       
       {/* CARD 1: HEALTH */}
-      <div className="bg-surface border border-border rounded-md shadow-sm p-4 flex flex-col h-[320px]">
-        <h3 className="text-sm font-bold text-text-primary mb-2 uppercase tracking-wide">Portfolio Health</h3>
+      <div className="glass-panel p-6 rounded-xl flex flex-col h-[360px]">
+        <h3 className="text-xs font-bold text-text-secondary dark:text-slate-400 uppercase tracking-widest mb-4">Portfolio Health</h3>
         <div className="flex-1 w-full min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -125,48 +126,68 @@ export default function AnalyticsView({ data }: AnalyticsViewProps) {
                 outerRadius={80}
                 paddingAngle={5}
                 dataKey="value"
+                stroke="none"
               >
                 {healthData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(val: number) => [val, 'Properties']} />
-              <Legend verticalAlign="bottom" height={36} iconType="circle" />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36} 
+                iconType="circle" 
+                formatter={(value) => <span className="text-xs font-medium text-text-secondary dark:text-slate-400 ml-1">{value}</span>}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* CARD 2: TOP VENDORS BY SPEND */}
-      <div className="bg-surface border border-border rounded-md shadow-sm p-4 flex flex-col h-[320px]">
-        <h3 className="text-sm font-bold text-text-primary mb-2 uppercase tracking-wide">Top Vendors (Annual Spend)</h3>
+      {/* CARD 2: VENDOR SPEND */}
+      <div className="glass-panel p-6 rounded-xl flex flex-col h-[360px]">
+        <h3 className="text-xs font-bold text-text-secondary dark:text-slate-400 uppercase tracking-widest mb-4">Top Vendor Spend (Annual)</h3>
         <div className="flex-1 w-full min-h-0">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={vendorData} layout="vertical" margin={{ left: 40, right: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+            <BarChart data={vendorData} layout="vertical" margin={{ left: 0, right: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.1} />
               <XAxis type="number" hide />
-              <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 11}} />
-              <Tooltip 
-                formatter={(val: number) => [`$${val.toLocaleString()}`, 'Annual Spend']}
-                cursor={{fill: '#f1f5f9'}}
+              <YAxis 
+                dataKey="name" 
+                type="category" 
+                width={100} 
+                tick={{fontSize: 10, fill: '#94A3B8'}} 
+                axisLine={false}
+                tickLine={false}
               />
-              <Bar dataKey="value" fill={COLORS.brand} radius={[0, 4, 4, 0]} barSize={24} />
+              <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
+              <Bar dataKey="value" fill={COLORS.brand} radius={[0, 4, 4, 0]} barSize={20} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* CARD 3: EXPIRATION TIMELINE */}
-      <div className="bg-surface border border-border rounded-md shadow-sm p-4 flex flex-col md:col-span-2 lg:col-span-1 h-[320px]">
-        <h3 className="text-sm font-bold text-text-primary mb-2 uppercase tracking-wide">Expiration Horizon</h3>
+      {/* CARD 3: EXPIRATION HORIZON */}
+      <div className="glass-panel p-6 rounded-xl flex flex-col md:col-span-2 lg:col-span-1 h-[360px]">
+        <h3 className="text-xs font-bold text-text-secondary dark:text-slate-400 uppercase tracking-widest mb-4">Expiration Horizon</h3>
         <div className="flex-1 w-full min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={expirationData} margin={{ top: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="year" axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
-              <Tooltip cursor={{fill: '#f1f5f9'}} />
-              <Bar dataKey="count" fill={COLORS.dark} radius={[4, 4, 0, 0]} barSize={40} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+              <XAxis 
+                dataKey="year" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fontSize: 11, fill: '#94A3B8'}}
+              />
+              <YAxis 
+                allowDecimals={false} 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fontSize: 11, fill: '#94A3B8'}}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
+              <Bar dataKey="count" fill={COLORS.dark} radius={[4, 4, 0, 0]} barSize={32} />
             </BarChart>
           </ResponsiveContainer>
         </div>

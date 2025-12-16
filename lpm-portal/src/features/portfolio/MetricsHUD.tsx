@@ -1,9 +1,9 @@
 import { Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { Property, FilterType } from '../../dataModel';
+import type { LegacyProperty, FilterType } from '../../dataModel';
 
 interface MetricsHUDProps {
-  properties: Property[];
+  properties: LegacyProperty[];
   activeFilter: FilterType;
   onFilterChange: (filter: FilterType) => void;
 }
@@ -15,70 +15,91 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
   // Count "On National Agreement"
   const nationalCount = properties.filter(p => p.status === 'on_national_agreement').length;
   
-  // Count "Action Required" (Sum of all urgent statuses)
-  // We include legacy statuses here just in case data hasn't fully migrated yet
+  // Count "Action Required"
   const actionRequiredCount = properties.filter(p => 
     [
-      // New Statuses
       'missing_data', 
       'pending_review', 
       'critical_action_required', 
       'cancellation_window_open', 
       'add_to_msa', 
       'service_contract_needed',
-      // Legacy Fallbacks
       'critical',
       'pending_rpm_review',
       'no_service_contract'
     ].includes(p.status)
   ).length;
 
-  const KPI = ({ label, value, icon: Icon, color, filter }: any) => {
+  const KPI = ({ label, value, icon: Icon, activeColor, filter }: any) => {
     const isActive = activeFilter === filter;
     
     return (
       <button
         onClick={() => onFilterChange(filter)}
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all hover:bg-slate-100 border border-transparent whitespace-nowrap",
-          isActive ? "bg-white border-border shadow-sm" : "opacity-60 hover:opacity-100"
+          "group relative flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-300 overflow-hidden",
+          isActive 
+            ? "bg-black/5 dark:bg-white/10 shadow-inner" 
+            : "hover:bg-black/5 dark:hover:bg-white/5"
         )}
       >
-        <div className={cn("p-1 rounded-full", isActive ? "bg-slate-100" : "bg-transparent")}>
-           <Icon className={cn("w-3.5 h-3.5", color)} />
+        {/* Active Indicator Line */}
+        {isActive && (
+          <div className={cn("absolute left-0 top-2 bottom-2 w-1 rounded-r-full", activeColor)} />
+        )}
+
+        <div className={cn(
+          "p-1.5 rounded-md transition-colors", 
+          isActive ? "bg-white dark:bg-white/10 shadow-sm" : "bg-transparent group-hover:bg-white/50 dark:group-hover:bg-white/5"
+        )}>
+           <Icon className={cn("w-4 h-4", isActive ? "text-text-primary dark:text-white" : "text-text-secondary dark:text-slate-400")} />
         </div>
-        <span className={cn("text-xs font-semibold uppercase tracking-wide", isActive ? "text-text-primary" : "text-text-secondary")}>
-          {label}: <span className={cn("ml-1 font-bold tabular-nums text-sm", color)}>{value}</span>
-        </span>
+        
+        <div className="flex flex-col items-start leading-none">
+          <span className={cn(
+            "text-[10px] font-mono font-bold uppercase tracking-widest mb-1", 
+            isActive ? "text-text-primary dark:text-white" : "text-text-secondary dark:text-slate-500"
+          )}>
+            {label}
+          </span>
+          <span className={cn(
+            "text-sm font-bold font-mono tabular-nums",
+            isActive ? "text-text-primary dark:text-white" : "text-text-secondary dark:text-slate-400"
+          )}>
+            {value}
+          </span>
+        </div>
       </button>
     );
   };
 
-  const Divider = () => <div className="h-4 w-[1px] bg-border mx-1" />;
-
   return (
-    <div className="flex items-center bg-slate-50 border border-border rounded-md shadow-sm h-12 px-2 w-fit">
+    <div className="flex items-center gap-2 p-1 bg-white/40 dark:bg-[#0A0A0C]/40 backdrop-blur-md border border-white/20 dark:border-white/5 rounded-xl shadow-glass dark:shadow-glass-dark">
       <KPI 
-        label="Full Portfolio" 
+        label="Total Assets" 
         value={total} 
         icon={Building2} 
-        color="text-brand" 
+        activeColor="bg-brand dark:bg-blue-400" 
         filter="all" 
       />
-      <Divider />
+      
+      <div className="w-[1px] h-8 bg-black/5 dark:bg-white/5" />
+      
       <KPI 
-        label="On National Agreement" 
+        label="National" 
         value={nationalCount} 
         icon={CheckCircle2} 
-        color="text-status-active" 
+        activeColor="bg-green-500" 
         filter="on_national_agreement" 
       />
-      <Divider />
+      
+      <div className="w-[1px] h-8 bg-black/5 dark:bg-white/5" />
+      
       <KPI 
-        label="Action Required" 
+        label="Action Reqd" 
         value={actionRequiredCount} 
         icon={AlertCircle} 
-        color="text-status-critical" 
+        activeColor="bg-red-500" 
         filter="action_required" 
       />
     </div>

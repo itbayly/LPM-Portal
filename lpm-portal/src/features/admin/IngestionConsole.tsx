@@ -3,7 +3,7 @@ import { UploadCloud, FileSpreadsheet, Check, AlertTriangle, X, Download, Loader
 import { cn } from '../../lib/utils';
 import { downloadTemplate, parsePropertyFile, parseUserFile } from '../../lib/excelParser';
 import { useProperties } from '../../hooks/useProperties';
-import type { Property, UserProfile } from '../../dataModel';
+import type { LegacyProperty, UserProfile } from '../../dataModel';
 
 interface IngestionConsoleProps {
   onClose: () => void;
@@ -19,7 +19,7 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
   const [file, setFile] = useState<File | null>(null);
   
   // Staging Data
-  const [parsedProps, setParsedProps] = useState<Property[]>([]);
+  const [parsedProps, setParsedProps] = useState<LegacyProperty[]>([]);
   const [parsedUsers, setParsedUsers] = useState<UserProfile[]>([]);
   
   const [status, setStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'complete'>('idle');
@@ -49,8 +49,9 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
     try {
       if (mode === 'property') {
         const { properties, derivedUsers } = await parsePropertyFile(uploadedFile);
-        setParsedProps(properties);
-        setParsedUsers(derivedUsers); // These are PMs automatically found in the sheet
+        // Cast to LegacyProperty for compatibility
+        setParsedProps(properties as unknown as LegacyProperty[]);
+        setParsedUsers(derivedUsers);
       } else {
         const users = await parseUserFile(uploadedFile);
         setParsedUsers(users);
@@ -67,6 +68,8 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
   const handleUpload = async () => {
     setStatus('uploading');
     if (mode === 'property') {
+      // Cast back to Property if needed by the hook, or update hook types. 
+      // For now we assume ingestProperties handles the data object.
       await ingestProperties(parsedProps, parsedUsers);
     } else {
       await ingestUsers(parsedUsers);
@@ -83,125 +86,153 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-lg shadow-lvl3 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+      <div className="bg-white/90 dark:bg-[#0A0A0C]/90 backdrop-blur-xl w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/20 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/5 animate-in fade-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="p-lg border-b border-border flex justify-between items-center bg-slate-50">
+        <div className="p-6 border-b border-black/5 dark:border-white/5 flex justify-between items-center bg-white/50 dark:bg-white/[0.02]">
           <div>
-            <h2 className="text-lg font-bold text-text-primary">Data Ingestion Console</h2>
-            <p className="text-sm text-text-secondary">Upload data to update the National Grid.</p>
+            <h2 className="text-sm font-bold font-mono text-text-primary dark:text-white uppercase tracking-widest flex items-center gap-2">
+              <UploadCloud className="w-4 h-4 text-brand dark:text-blue-400" />
+              Data Ingestion Protocol
+            </h2>
+            <p className="text-xs text-text-secondary dark:text-slate-400 mt-1">
+              Select payload type and upload source file.
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-text-secondary">
+          <button onClick={onClose} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-text-secondary dark:text-slate-400 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Mode Switcher */}
         {status !== 'complete' && (
-          <div className="flex border-b border-border">
+          <div className="flex border-b border-black/5 dark:border-white/5">
             <button 
               onClick={() => { setMode('property'); reset(); }}
-              className={cn("flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors", 
-                mode === 'property' ? "border-brand text-brand bg-blue-50/50" : "border-transparent text-text-secondary hover:bg-slate-50")}
+              className={cn(
+                "flex-1 py-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all", 
+                mode === 'property' 
+                  ? "bg-black/5 dark:bg-white/5 text-brand dark:text-blue-400 shadow-inner" 
+                  : "text-text-secondary dark:text-slate-500 hover:text-text-primary dark:hover:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5"
+              )}
             >
-              <Building2 className="w-4 h-4" /> Properties
+              <Building2 className="w-4 h-4" /> Property Assets
             </button>
+            <div className="w-[1px] bg-black/5 dark:bg-white/5" />
             <button 
               onClick={() => { setMode('user'); reset(); }}
-              className={cn("flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors", 
-                mode === 'user' ? "border-brand text-brand bg-blue-50/50" : "border-transparent text-text-secondary hover:bg-slate-50")}
+              className={cn(
+                "flex-1 py-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all", 
+                mode === 'user' 
+                  ? "bg-black/5 dark:bg-white/5 text-brand dark:text-blue-400 shadow-inner" 
+                  : "text-text-secondary dark:text-slate-500 hover:text-text-primary dark:hover:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5"
+              )}
             >
-              <Users className="w-4 h-4" /> Users / Roster
+              <Users className="w-4 h-4" /> User Roster
             </button>
           </div>
         )}
 
         {/* Body */}
-        <div className="p-2xl flex-1 overflow-y-auto">
+        <div className="p-8 flex-1 overflow-y-auto">
           {status === 'complete' ? (
-            <div className="text-center py-xl space-y-md animate-in fade-in zoom-in-95">
-              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                <Check className="w-8 h-8" />
+            <div className="text-center py-10 space-y-6 animate-in fade-in zoom-in-95">
+              <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto border border-green-500/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
+                <Check className="w-10 h-10 text-green-500" />
               </div>
-              <h3 className="text-xl font-bold text-text-primary">Ingestion Complete</h3>
-              <p className="text-text-secondary max-w-sm mx-auto">
-                {mode === 'property' 
-                  ? `Successfully mapped ${parsedProps.length} properties and updated ${parsedUsers.length} user accounts.`
-                  : `Successfully updated the access roster with ${parsedUsers.length} users.`}
-              </p>
-              <button onClick={onClose} className="mt-lg px-6 py-2 bg-brand text-white font-medium rounded-sm shadow-sm hover:bg-brand-dark">
-                Return to Grid
+              <div>
+                <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Ingestion Successful</h3>
+                <p className="text-sm text-text-secondary dark:text-slate-400 max-w-sm mx-auto">
+                  {mode === 'property' 
+                    ? `Mapped ${parsedProps.length} properties and updated ${parsedUsers.length} user accounts.`
+                    : `Updated the access roster with ${parsedUsers.length} users.`}
+                </p>
+              </div>
+              <button 
+                onClick={onClose} 
+                className="px-8 py-3 bg-brand hover:bg-brand-dark text-white font-bold uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-brand/25 transition-all hover:scale-105"
+              >
+                Return to Dashboard
               </button>
             </div>
           ) : (
-            <div className="space-y-xl">
+            <div className="space-y-8">
               
               {/* Template Download */}
-              <div className="flex justify-between items-center bg-blue-50 p-4 rounded-md border border-blue-100">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white rounded-full text-brand shadow-sm">
+              <div className="flex justify-between items-center bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-brand dark:text-blue-400">
                     <FileSpreadsheet className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-blue-900">Need the {mode === 'property' ? 'Property' : 'User'} template?</p>
-                    <p className="text-xs text-blue-700">Ensure your CSV/Excel matches the system schema.</p>
+                    <p className="text-sm font-bold text-blue-900 dark:text-blue-200">System Template Required</p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">Data must match the schema.</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => downloadTemplate(mode)}
-                  className="px-3 py-1.5 bg-white text-blue-700 text-xs font-bold border border-blue-200 rounded-sm hover:bg-blue-50 flex items-center gap-2 shadow-sm"
+                  className="px-4 py-2 bg-white dark:bg-white/10 border border-blue-200 dark:border-white/10 text-blue-700 dark:text-blue-200 text-xs font-bold uppercase tracking-wide rounded-lg hover:bg-blue-50 dark:hover:bg-white/20 flex items-center gap-2 transition-colors"
                 >
-                  <Download className="w-3.5 h-3.5" /> Download Template
+                  <Download className="w-3.5 h-3.5" /> Download CSV
                 </button>
               </div>
 
               {/* Drag Zone */}
               <div 
                 className={cn(
-                  "border-2 border-dashed rounded-lg h-64 flex flex-col items-center justify-center transition-colors cursor-pointer relative",
-                  dragActive ? "border-brand bg-blue-50" : "border-slate-300 hover:bg-slate-50",
-                  file ? "bg-slate-50 border-solid border-slate-300" : ""
+                  "border-2 border-dashed rounded-2xl h-64 flex flex-col items-center justify-center transition-all duration-300 cursor-pointer relative overflow-hidden group",
+                  dragActive 
+                    ? "border-brand bg-brand/5 dark:border-blue-400 dark:bg-blue-400/10" 
+                    : "border-black/10 dark:border-white/10 hover:border-brand/50 dark:hover:border-blue-400/50 hover:bg-black/5 dark:hover:bg-white/5",
+                  file ? "bg-black/5 dark:bg-white/5 border-solid" : ""
                 )}
                 onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
               >
                 <input 
-                  type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                   onChange={handleFileSelect} accept=".csv, .xlsx, .xls"
                   disabled={status === 'parsing' || status === 'uploading'}
                 />
 
-                {status === 'parsing' ? (
-                  <div className="text-center">
-                    <Loader2 className="w-10 h-10 text-brand animate-spin mx-auto mb-4" />
-                    <p className="text-sm font-medium text-text-primary">Analyzing File...</p>
-                  </div>
-                ) : file ? (
-                  <div className="text-center">
-                    <FileSpreadsheet className="w-12 h-12 text-green-600 mx-auto mb-md" />
-                    <p className="text-lg font-medium text-text-primary">{file.name}</p>
-                    <p className="text-sm text-text-secondary">
-                      {status === 'ready' 
-                        ? (mode === 'property' ? `Ready to import ${parsedProps.length} properties (+${parsedUsers.length} users)` : `Ready to update ${parsedUsers.length} users`)
-                        : 'Processing...'}
-                    </p>
-                    <button onClick={(e) => { e.preventDefault(); reset(); }} className="mt-md text-sm text-red-500 hover:underline z-20 relative">Remove</button>
-                  </div>
-                ) : (
-                  <div className="text-center pointer-events-none">
-                    <div className="p-4 bg-slate-100 rounded-full inline-block mb-md">
-                      <UploadCloud className="w-8 h-8 text-slate-400" />
-                    </div>
-                    <p className="text-lg font-medium text-text-primary">Drag & drop {mode} list</p>
-                    <p className="text-xs text-text-secondary mt-1">Supports .XLSX and .CSV</p>
-                  </div>
-                )}
+                {/* Background Glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-brand/0 to-brand/5 dark:to-blue-400/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+
+                <div className="relative z-10 flex flex-col items-center">
+                  {status === 'parsing' ? (
+                    <>
+                      <Loader2 className="w-10 h-10 text-brand dark:text-blue-400 animate-spin mb-4" />
+                      <p className="text-sm font-bold text-text-primary dark:text-white uppercase tracking-wider">Analyzing Schema...</p>
+                    </>
+                  ) : file ? (
+                    <>
+                      <FileSpreadsheet className="w-12 h-12 text-green-500 mb-4 drop-shadow-lg" />
+                      <p className="text-lg font-bold text-text-primary dark:text-white mb-1">{file.name}</p>
+                      <p className="text-xs text-text-secondary dark:text-slate-400 font-mono uppercase tracking-wider">
+                        {status === 'ready' 
+                          ? (mode === 'property' ? `Ready: ${parsedProps.length} Assets found` : `Ready: ${parsedUsers.length} Users found`)
+                          : 'Processing...'}
+                      </p>
+                      <button onClick={(e) => { e.preventDefault(); reset(); }} className="mt-6 text-xs text-red-500 hover:text-red-400 font-bold uppercase tracking-widest hover:underline relative z-30">
+                        Remove File
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-white dark:bg-white/5 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <UploadCloud className="w-8 h-8 text-brand dark:text-blue-400" />
+                      </div>
+                      <p className="text-sm font-bold text-text-primary dark:text-white uppercase tracking-wider">Drop File Here</p>
+                      <p className="text-xs text-text-secondary dark:text-slate-500 mt-2 font-mono">.CSV or .XLSX</p>
+                    </>
+                  )}
+                </div>
               </div>
 
               {error && (
-                <div className="flex gap-2 p-3 bg-red-50 border border-red-100 rounded-sm text-red-700 text-sm items-center">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  {error}
+                <div className="flex gap-3 p-4 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg text-red-600 dark:text-red-400 text-sm items-center">
+                  <AlertTriangle className="w-5 h-5 shrink-0" />
+                  <span className="font-medium">{error}</span>
                 </div>
               )}
             </div>
@@ -210,16 +241,24 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
 
         {/* Footer */}
         {status !== 'complete' && (
-          <div className="p-lg border-t border-border bg-slate-50 flex justify-end gap-sm">
-            <button onClick={onClose} className="px-4 py-2 text-text-secondary font-medium hover:text-text-primary">Cancel</button>
+          <div className="p-6 border-t border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] flex justify-end gap-3">
+            <button 
+              onClick={onClose} 
+              className="px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
             <button 
               disabled={status !== 'ready'}
               onClick={handleUpload}
-              className={cn("px-6 py-2 rounded-sm font-bold shadow-sm transition-colors flex items-center gap-2",
-                status === 'ready' ? "bg-brand text-white hover:bg-brand-dark" : "bg-slate-300 text-white cursor-not-allowed"
+              className={cn(
+                "px-8 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95",
+                status === 'ready' 
+                  ? "bg-brand hover:bg-brand-dark text-white shadow-brand/25" 
+                  : "bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
               )}
             >
-              {status === 'uploading' ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</> : 'Start Ingestion'}
+              {status === 'uploading' ? <><Loader2 className="w-4 h-4 animate-spin" /> Ingesting...</> : 'Initiate Sequence'}
             </button>
           </div>
         )}

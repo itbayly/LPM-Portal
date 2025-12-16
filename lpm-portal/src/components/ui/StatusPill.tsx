@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import type { PropertyStatus } from '../../dataModel'; // <-- The fix is here (../../)
+import type { PropertyStatus } from '../../dataModel';
 
 interface StatusPillProps {
   status: PropertyStatus;
@@ -10,37 +10,39 @@ export function StatusPill({ status, className }: StatusPillProps) {
   
   const getStatusConfig = (s: PropertyStatus) => {
     switch (s) {
-      // --- ACTION REQUIRED ---
-      case 'missing_data':
-        return { label: 'Missing Data', style: 'bg-slate-100 text-slate-700 border-slate-300' };
-      case 'pending_review':
-      case 'pending_rpm_review': // Legacy handle
-        return { label: 'Pending Review', style: 'bg-amber-100 text-amber-700 border-amber-200' };
+      // --- ACTION REQUIRED (Red/Orange/Rose) ---
       case 'critical_action_required':
-      case 'critical': // Legacy handle
-        return { label: 'Critical Action Required', style: 'bg-red-100 text-red-700 border-red-200 font-bold' };
+      case 'critical': 
+        return { label: 'Critical Action', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 animate-pulse' };
       case 'cancellation_window_open':
-        return { label: 'Cancellation Window Open', style: 'bg-red-50 text-red-600 border-red-200 border-dashed animate-pulse' };
-      case 'add_to_msa':
-        return { label: 'Add to MSA', style: 'bg-indigo-100 text-indigo-700 border-indigo-200' };
+        return { label: 'Window Open', style: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]' };
       case 'service_contract_needed':
-      case 'no_service_contract': // Legacy handle
-        return { label: 'Service Contract Needed', style: 'bg-rose-100 text-rose-700 border-rose-200' };
+      case 'no_service_contract': 
+        return { label: 'No Contract', style: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' };
+      case 'pending_review':
+      case 'pending_rpm_review': 
+        return { label: 'Pending Review', style: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' };
+      case 'missing_data':
+        return { label: 'Missing Data', style: 'bg-rose-500/5 text-rose-600 dark:text-rose-400 border-rose-500/20 border-dashed' };
 
-      // --- NO ACTION / INFO ---
+      // --- INFORMATIONAL (Blue/Indigo) ---
+      case 'add_to_msa':
+        return { label: 'Add to MSA', style: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' };
       case 'notice_due_soon':
-      case 'warning': // Legacy handle
-        return { label: 'Notice Due Soon', style: 'bg-yellow-50 text-yellow-600 border-yellow-200' };
+      case 'warning': 
+        return { label: 'Notice Soon', style: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' };
+
+      // --- GOOD / NEUTRAL (Green/Slate) ---
       case 'active_contract':
-      case 'active': // Legacy handle
-        return { label: 'Active Contract', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+      case 'active': 
+        return { label: 'Active', style: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' };
       case 'on_national_agreement':
-        return { label: 'On National Agreement', style: 'bg-green-100 text-green-700 border-green-200' };
+        return { label: 'National Agmt', style: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' };
       case 'no_elevators':
-        return { label: 'No Elevators', style: 'bg-slate-50 text-slate-400 border-slate-200' };
+        return { label: 'No Assets', style: 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20' };
         
       default:
-        return { label: 'Unknown', style: 'bg-gray-100 text-gray-500' };
+        return { label: 'Unknown', style: 'bg-gray-500/10 text-gray-500 border-gray-500/20' };
     }
   };
 
@@ -49,7 +51,7 @@ export function StatusPill({ status, className }: StatusPillProps) {
   return (
     <span 
       className={cn(
-        "px-2.5 py-0.5 rounded-full text-xs font-bold border capitalize whitespace-nowrap",
+        "px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider border whitespace-nowrap backdrop-blur-sm",
         config.style,
         className
       )}

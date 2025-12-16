@@ -6,22 +6,21 @@ import {
   ArrowUpAZ, 
   ArrowDownZA, 
   Search, 
-  // Filter, <--- REMOVED unused import
   ArrowUp, 
   ArrowDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
 } from 'lucide-react';
-import type { Property } from '../../dataModel';
+import type { LegacyProperty } from '../../dataModel';
 import { cn } from '../../lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface MasterGridProps {
-  onRowClick: (property: Property) => void;
-  data?: Property[]; 
+  onRowClick: (property: LegacyProperty) => void;
+  data?: LegacyProperty[]; 
 }
 
-type SortKey = keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
+type SortKey = keyof LegacyProperty | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
 
 type SortState = {
   key: SortKey;
@@ -48,7 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 // --- HELPERS ---
-const getValue = (item: Property, path: string) => {
+const getValue = (item: LegacyProperty, path: string) => {
   if (path.includes('.')) {
     const [obj, key] = path.split('.');
     return (item as any)[obj]?.[key];
@@ -56,7 +55,7 @@ const getValue = (item: Property, path: string) => {
   return (item as any)[path];
 };
 
-const getUniqueValues = (data: Property[], key: string) => {
+const getUniqueValues = (data: LegacyProperty[], key: string) => {
   const values = new Set<string>();
   data.forEach(item => {
     const val = getValue(item, key);
@@ -83,7 +82,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   // --- FILTERING ---
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      if (item.status === 'no_elevators') return false; // Default Hide
+      if (item.status === 'no_elevators') return false; 
       return Object.entries(activeFilters).every(([key, selectedValues]) => {
         if (selectedValues.length === 0) return true;
         const itemValue = String(getValue(item, key));
@@ -127,7 +126,6 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
   };
 
   // --- SUB-COMPONENT: HEADER MENU (Glassmorphic) ---
-  // UPDATED: Removed unused `onClose` prop
   const HeaderMenu = ({ columnKey, options }: { columnKey: string, options: string[] }) => {
     const initialSelection = activeFilters[columnKey] || options;
     const [selected, setSelected] = useState<string[]>(initialSelection);
@@ -156,30 +154,12 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
 
     return (
       <div 
-        className="absolute top-full left-0 mt-2 w-64 bg-white/90 dark:bg-[#0A0A0C]/90 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-md shadow-2xl z-50 text-sm flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+        className="absolute top-full left-0 mt-2 w-64 bg-white/90 dark:bg-[#0A0A0C]/95 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-lg shadow-2xl z-50 text-sm flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden ring-1 ring-black/5 dark:ring-white/5"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sort Section */}
-        <div className="p-2 border-b border-black/5 dark:border-white/5 space-y-1">
-          <button 
-            onClick={() => handleSort(columnKey as SortKey, 'asc')}
-            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-sm text-text-primary dark:text-white transition-colors"
-          >
-            <ArrowUpAZ className="w-4 h-4 text-text-secondary dark:text-slate-400" />
-            <span>Sort Ascending</span>
-          </button>
-          <button 
-            onClick={() => handleSort(columnKey as SortKey, 'desc')}
-            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-sm text-text-primary dark:text-white transition-colors"
-          >
-            <ArrowDownZA className="w-4 h-4 text-text-secondary dark:text-slate-400" />
-            <span>Sort Descending</span>
-          </button>
-        </div>
-
         {/* Search Slot */}
-        <div className="p-3 border-b border-black/5 dark:border-white/5">
-          <div className="relative bg-black/5 dark:bg-white/5 rounded-sm">
+        <div className="p-3 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]">
+          <div className="relative bg-black/5 dark:bg-white/5 rounded-sm group overflow-hidden">
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-text-secondary dark:text-slate-500" />
             <input 
               type="text" 
@@ -202,35 +182,43 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
           </div>
         </div>
 
+        {/* Sort Actions */}
+        <div className="p-1 grid grid-cols-2 gap-1 border-b border-black/5 dark:border-white/5">
+          <button 
+            onClick={() => handleSort(columnKey as SortKey, 'asc')}
+            className="flex items-center justify-center gap-2 px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white transition-colors"
+          >
+            <ArrowUpAZ className="w-4 h-4" />
+            <span className="text-[10px] font-bold uppercase">Asc</span>
+          </button>
+          <button 
+            onClick={() => handleSort(columnKey as SortKey, 'desc')}
+            className="flex items-center justify-center gap-2 px-2 py-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white transition-colors"
+          >
+            <ArrowDownZA className="w-4 h-4" />
+            <span className="text-[10px] font-bold uppercase">Desc</span>
+          </button>
+        </div>
+
         {/* Options List */}
         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
-          <label className="flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer rounded-sm group">
-            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isAllSelected ? 'bg-brand border-brand dark:bg-cyan-500 dark:border-cyan-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand dark:group-hover:border-cyan-400'}`}>
-              {isAllSelected && <div className="w-2 h-2 bg-white rounded-[1px]" />}
+          <label className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer rounded-sm group transition-colors">
+            <div className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${isAllSelected ? 'bg-brand border-brand dark:bg-cyan-500 dark:border-cyan-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand dark:group-hover:border-cyan-400'}`}>
+              {isAllSelected && <div className="w-1.5 h-1.5 bg-white rounded-[1px]" />}
             </div>
-            <input 
-              type="checkbox" 
-              className="hidden"
-              checked={isAllSelected}
-              onChange={toggleSelectAll}
-            />
-            <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary dark:text-slate-400 group-hover:text-text-primary dark:group-hover:text-white">Select All</span>
+            <input type="checkbox" className="hidden" checked={isAllSelected} onChange={toggleSelectAll} />
+            <span className="font-mono text-[10px] uppercase tracking-wide text-text-secondary dark:text-slate-400 group-hover:text-text-primary dark:group-hover:text-white transition-colors">Select All</span>
           </label>
           
           {filteredOptions.map(opt => {
             const isChecked = selected.includes(opt);
             return (
-              <label key={opt} className="flex items-center gap-2 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer rounded-sm group">
-                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isChecked ? 'bg-brand border-brand dark:bg-cyan-500 dark:border-cyan-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand dark:group-hover:border-cyan-400'}`}>
-                  {isChecked && <div className="w-2 h-2 bg-white rounded-[1px]" />}
+              <label key={opt} className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer rounded-sm group transition-colors">
+                <div className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${isChecked ? 'bg-brand border-brand dark:bg-cyan-500 dark:border-cyan-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand dark:group-hover:border-cyan-400'}`}>
+                  {isChecked && <div className="w-1.5 h-1.5 bg-white rounded-[1px]" />}
                 </div>
-                <input 
-                  type="checkbox" 
-                  className="hidden"
-                  checked={isChecked}
-                  onChange={() => toggleOption(opt)}
-                />
-                <span className="text-xs text-text-primary dark:text-slate-300 truncate">{formatValue(columnKey, opt)}</span>
+                <input type="checkbox" className="hidden" checked={isChecked} onChange={() => toggleOption(opt)} />
+                <span className="text-xs text-text-primary dark:text-slate-300 truncate font-medium">{formatValue(columnKey, opt)}</span>
               </label>
             );
           })}
@@ -242,13 +230,13 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
             onClick={() => applyFilter(columnKey, null)} 
             className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-text-secondary hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
           >
-            Clear
+            Reset
           </button>
           <button 
             onClick={() => applyFilter(columnKey, selected.length === options.length ? null : selected)}
             className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white bg-brand dark:bg-cyan-600 hover:bg-brand-dark dark:hover:bg-cyan-500 rounded-sm shadow-sm transition-colors"
           >
-            Apply
+            Confirm
           </button>
         </div>
       </div>
@@ -275,19 +263,22 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     return (
       <th 
         className={cn(
-          "py-3 px-4 text-left border-b border-black/5 dark:border-white/5 select-none relative group cursor-pointer transition-colors", 
+          "py-3 px-4 text-left border-b border-black/5 dark:border-white/5 select-none relative group cursor-pointer transition-colors duration-200", 
           width,
           (isSorted || isFiltered || isOpen) ? "bg-black/5 dark:bg-white/5" : "hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
         )}
         onClick={() => setOpenMenuColumn(isOpen ? null : columnKey)}
       >
         <div className="flex items-center justify-between gap-2" ref={menuRef}>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary dark:text-slate-400 opacity-80 group-hover:opacity-100 transition-opacity truncate">
+          <span className={cn(
+            "font-mono text-[10px] uppercase tracking-widest transition-opacity truncate",
+            (isSorted || isFiltered) ? "text-brand dark:text-cyan-400 font-bold" : "text-text-secondary dark:text-slate-400 opacity-70 group-hover:opacity-100"
+          )}>
             {label}
           </span>
           
           <div className="flex items-center gap-1">
-            {isFiltered && <div className="w-1.5 h-1.5 rounded-full bg-brand dark:bg-cyan-400" />}
+            {isFiltered && <div className="w-1.5 h-1.5 rounded-full bg-brand dark:bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />}
             
             {isSorted && (
               sortConfig?.direction === 'asc' 
@@ -296,32 +287,41 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
             )}
 
             <div className={cn(
-              "transition-opacity duration-200",
-              isOpen || isSorted || isFiltered ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              "transition-all duration-200",
+              isOpen ? "rotate-180 opacity-100" : (isSorted || isFiltered ? "opacity-100" : "opacity-0 group-hover:opacity-100")
             )}>
               <ChevronDown className="w-3 h-3 text-text-secondary dark:text-slate-500" />
             </div>
           </div>
 
-          {isOpen && (
-            <HeaderMenu 
-              columnKey={columnKey} 
-              options={getUniqueValues(data, columnKey)} 
-              // UPDATED: Removed passing `onClose` since it's no longer a prop
-            />
-          )}
+          <AnimatePresence>
+            {isOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 5 }}
+                className="absolute top-full left-0 z-50"
+              >
+                <HeaderMenu 
+                  columnKey={columnKey} 
+                  options={getUniqueValues(data, columnKey)} 
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </th>
     );
   };
 
   return (
-    <div className="w-full bg-white/50 dark:bg-[#0A0A0C]/50 backdrop-blur-md rounded-lg shadow-sm border border-white/20 dark:border-white/10 overflow-hidden flex flex-col h-full transition-colors duration-300">
+    // GLASS PANEL CONTAINER
+    <div className="w-full glass-panel rounded-xl overflow-hidden flex flex-col h-full transition-all duration-500">
       
       {/* GRID BODY */}
-      <div className="overflow-auto flex-1 relative min-h-[400px]">
+      <div className="overflow-auto flex-1 relative min-h-[400px] scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/10 dark:scrollbar-thumb-white/10">
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 z-20 bg-[#F4F5F7] dark:bg-[#0A0A0C] shadow-sm">
+          <thead className="sticky top-0 z-20 bg-[#F2F4F6] dark:bg-[#0A0A0C] shadow-sm ring-1 ring-black/5 dark:ring-white/5">
             <tr>
               <HeaderCell label="Status" columnKey="status" width="w-[140px]" />
               <HeaderCell label="Property Name" columnKey="name" width="min-w-[180px]" />
@@ -342,41 +342,43 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
               <tr 
                 key={prop.id} 
                 onClick={() => onRowClick(prop)} 
-                className="group cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-150"
+                className="group cursor-pointer hover:bg-brand/5 dark:hover:bg-brand/10 transition-colors duration-200"
               >
                 <td className="py-3 px-4"><StatusPill status={prop.status} /></td>
                 <td className="py-3 px-4 text-xs font-bold text-text-primary dark:text-white group-hover:text-brand dark:group-hover:text-cyan-400 transition-colors">{prop.name}</td>
                 <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.address}</td>
                 <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.city}</td>
                 <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.state}</td>
-                <td className="py-3 px-4 text-xs font-mono text-text-secondary dark:text-slate-500">{prop.zip}</td>
-                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-center">{prop.unitCount}</td>
+                <td className="py-3 px-4 text-xs font-mono text-text-secondary dark:text-slate-500 opacity-70">{prop.zip}</td>
+                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-sm">{prop.unitCount}</td>
                 <td className="py-3 px-4 text-xs font-medium text-text-primary dark:text-slate-200">{prop.vendor.name}</td>
-                <td className="py-3 px-4"><div className="pointer-events-none scale-75 origin-left"><StarRating value={prop.vendor.rating} readonly /></div></td>
-                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-white text-right">${prop.vendor.currentPrice.toLocaleString()}</td>
-                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-right">{prop.contractEndDate}</td>
-                <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.cancellationWindow}</td>
+                <td className="py-3 px-4"><div className="pointer-events-none scale-75 origin-left"><StarRating value={prop.vendor.rating || 0} readonly /></div></td>
+                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-white text-right tracking-tight">${(prop.vendor.currentPrice || 0).toLocaleString()}</td>
+                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-right opacity-90">{prop.contractEndDate}</td>
+                <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400 truncate max-w-[120px]">{prop.cancellationWindow}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* FOOTER PAGINATION */}
-      <div className="border-t border-black/5 dark:border-white/5 p-3 bg-white/50 dark:bg-white/[0.02] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 text-xs text-text-secondary dark:text-slate-500">
-          <span className="uppercase tracking-wide opacity-70">Rows per page:</span>
-          <select 
-            value={itemsPerPage} 
-            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} 
-            className="bg-transparent border border-black/10 dark:border-white/10 rounded px-2 py-1 text-xs font-mono focus:border-brand dark:focus:border-cyan-500 outline-none text-text-primary dark:text-white cursor-pointer"
-          >
-            <option value={25} className="text-black">25</option>
-            <option value={50} className="text-black">50</option>
-            <option value={100} className="text-black">100</option>
-          </select>
-          <span className="ml-4 tabular-nums">
-            {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedData.length)} <span className="opacity-50 mx-1">/</span> {sortedData.length}
+      {/* FOOTER PAGINATION (Glass) */}
+      <div className="border-t border-black/5 dark:border-white/5 p-3 bg-white/40 dark:bg-black/40 backdrop-blur-md flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4 text-[10px] font-mono uppercase tracking-wide text-text-secondary dark:text-slate-500">
+          <div className="flex items-center gap-2">
+            <span className="opacity-70">Rows:</span>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} 
+              className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded px-2 py-1 focus:border-brand dark:focus:border-cyan-500 outline-none text-text-primary dark:text-white cursor-pointer"
+            >
+              <option value={25} className="text-black">25</option>
+              <option value={50} className="text-black">50</option>
+              <option value={100} className="text-black">100</option>
+            </select>
+          </div>
+          <span className="tabular-nums opacity-70">
+            {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedData.length)} / {sortedData.length}
           </span>
         </div>
         
@@ -384,14 +386,14 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
           <button 
             onClick={() => currentPage > 1 && setCurrentPage(p => p - 1)} 
             disabled={currentPage === 1} 
-            className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-primary dark:text-white transition-colors"
+            className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-primary dark:text-white transition-colors border border-transparent hover:border-black/5 dark:hover:border-white/5"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button 
             onClick={() => currentPage < totalPages && setCurrentPage(p => p + 1)} 
             disabled={currentPage === totalPages} 
-            className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-primary dark:text-white transition-colors"
+            className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-primary dark:text-white transition-colors border border-transparent hover:border-black/5 dark:hover:border-white/5"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

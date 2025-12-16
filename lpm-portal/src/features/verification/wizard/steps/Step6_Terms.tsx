@@ -1,117 +1,96 @@
-import { cn } from '../../../../lib/utils';
-import { formatDateInput } from '../wizardConfig';
+import { DollarSign } from 'lucide-react';
+import { BILLING_FREQUENCIES } from '../wizardConfig';
 import type { StepProps } from '../wizardConfig';
+import { cn } from '../../../../lib/utils';
 
-export default function Step6_Terms({ formData, setFormData }: StepProps) {
-  
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatDateInput(e.target.value);
-    setFormData(prev => ({ ...prev, contractStart: formatted }));
-  };
-
+export default function Step5_Billing({ formData, setFormData }: StepProps) {
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">
-            Original Start Date <span className="text-red-500">*</span>
-          </label>
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+      
+      {/* Price Input */}
+      <div>
+        <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary dark:text-slate-500 mb-1.5 block">
+          Current Monthly Price <span className="text-red-500">*</span>
+        </label>
+        <div className="relative group">
+          <div className="absolute left-4 top-3 text-text-secondary dark:text-slate-500">
+            <DollarSign className="w-5 h-5" />
+          </div>
           <input 
-            type="text" 
-            placeholder="MM/DD/YYYY"
-            className="w-full p-2 border border-border rounded-md" 
-            value={formData.contractStart} 
-            onChange={handleDateChange} 
+            type="number"
+            className="w-full bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10 rounded-t-sm pl-11 pr-4 py-3 text-2xl font-mono font-bold text-text-primary dark:text-white outline-none placeholder:text-slate-400/30"
+            value={formData.currentPrice}
+            onChange={e => setFormData(prev => ({ ...prev, currentPrice: Number(e.target.value) }))}
+            placeholder="0.00"
+            autoFocus
           />
-        </div>
-        <div>
-          <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">
-            Initial Term Length <span className="text-red-500">*</span>
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <input 
-              type="number" 
-              className="p-2 border border-border rounded-md w-full" 
-              value={formData.initialTermNum} 
-              onChange={e => setFormData(prev => ({ ...prev, initialTermNum: Number(e.target.value) }))} 
-            />
-            <select 
-              className="p-2 border border-border rounded-md bg-white w-full"
-              value={formData.initialTermUnit} 
-              onChange={e => setFormData(prev => ({ ...prev, initialTermUnit: e.target.value }))}
-            >
-              <option>Years</option>
-              <option>Months</option>
-            </select>
-          </div>
+          <div className="absolute bottom-0 left-0 w-0 h-[1px] bg-brand dark:bg-blue-400 transition-all duration-300 group-focus-within:w-full" />
         </div>
       </div>
 
-      {/* Auto-Renew Toggle */}
-      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-border">
-        <span className="font-bold text-sm text-text-primary">
-          Does this contract auto-renew? <span className="text-red-500">*</span>
-        </span>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setFormData(prev => ({ ...prev, autoRenews: true }))}
-            className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews === true ? "bg-brand text-white" : "bg-white border text-text-secondary")}
+      {/* Frequency */}
+      <div>
+        <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary dark:text-slate-500 mb-1.5 block">
+          Billing Frequency
+        </label>
+        <div className="relative group">
+          <select 
+            className="w-full bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10 rounded-t-sm px-4 py-3 text-sm font-medium text-text-primary dark:text-white outline-none cursor-pointer"
+            value={formData.billingFreq}
+            onChange={e => setFormData(prev => ({ ...prev, billingFreq: e.target.value as any }))}
           >
-            Yes
-          </button>
-          <button 
-            onClick={() => setFormData(prev => ({ ...prev, autoRenews: false }))}
-            className={cn("px-3 py-1 rounded text-sm font-bold", formData.autoRenews === false ? "bg-brand text-white" : "bg-white border text-text-secondary")}
-          >
-            No
-          </button>
+            {BILLING_FREQUENCIES.map(f => <option key={f} value={f} className="text-black">{f}</option>)}
+          </select>
+          <div className="absolute bottom-0 left-0 w-0 h-[1px] bg-brand dark:bg-blue-400 transition-all duration-300 group-focus-within:w-full" />
         </div>
       </div>
 
-      {formData.autoRenews && (
-        <div className="animate-in fade-in slide-in-from-top-2">
-          <label className="text-xs font-bold uppercase text-text-secondary mb-1 block">
-            Renewal Term Length <span className="text-red-500">*</span>
-          </label>
-          <div className="flex gap-2">
+      {/* Price Cap Toggle */}
+      <div className="pt-6 border-t border-black/5 dark:border-white/10">
+        <label className="flex items-center gap-3 cursor-pointer group mb-4">
+          <div className={cn(
+            "w-10 h-5 rounded-full relative transition-colors duration-200",
+            formData.hasPriceCap ? "bg-brand dark:bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
+          )}>
+            <div className={cn(
+              "absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200",
+              formData.hasPriceCap ? "left-6" : "left-1"
+            )} />
             <input 
-              type="number" 
-              className="flex-1 p-2 border border-border rounded-md" 
-              value={formData.renewalTermNum} 
-              onChange={e => setFormData(prev => ({ ...prev, renewalTermNum: Number(e.target.value) }))} 
+              type="checkbox" 
+              className="hidden"
+              checked={formData.hasPriceCap} 
+              onChange={e => setFormData(prev => ({ ...prev, hasPriceCap: e.target.checked }))} 
             />
-            <select 
-              className="w-24 p-2 border border-border rounded-md bg-white"
-              value={formData.renewalTermUnit} 
-              onChange={e => setFormData(prev => ({ ...prev, renewalTermUnit: e.target.value }))}
-            >
-              <option>Years</option>
-              <option>Months</option>
-            </select>
           </div>
-        </div>
-      )}
+          <span className="text-sm font-bold text-text-primary dark:text-white group-hover:text-brand dark:group-hover:text-blue-400 transition-colors">
+            Include Price Adjustment Cap?
+          </span>
+        </label>
 
-      {/* End Date with Override */}
-      <div className="pt-4 border-t border-border">
-        <div className="flex justify-between items-center mb-1">
-          <label className="text-xs font-bold uppercase text-text-secondary">Current End Date</label>
-          {!formData.overrideEndDate && (
-            <button 
-              onClick={() => setFormData(prev => ({ ...prev, overrideEndDate: true }))} 
-              className="text-xs text-brand font-bold hover:underline"
-            >
-              Override Calculation
-            </button>
-          )}
-        </div>
-        <input 
-          type="date" 
-          className={cn("w-full p-2 border rounded-md", !formData.overrideEndDate ? "bg-slate-100 text-slate-600" : "bg-white border-brand")}
-          value={formData.contractEnd} 
-          disabled={!formData.overrideEndDate}
-          onChange={e => setFormData(prev => ({ ...prev, contractEnd: e.target.value }))} 
-        />
+        {formData.hasPriceCap && (
+          <div className="pl-12 animate-in slide-in-from-top-2">
+            <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-text-secondary dark:text-slate-500 mb-1.5 block">
+              Cap Amount <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-3">
+              <input 
+                className="flex-1 bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10 rounded-t-sm px-3 py-2 text-sm text-text-primary dark:text-white outline-none"
+                placeholder="e.g. 3"
+                value={formData.priceCapValue}
+                onChange={e => setFormData(prev => ({ ...prev, priceCapValue: e.target.value }))}
+              />
+              <select 
+                className="w-24 bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10 rounded-t-sm px-3 py-2 text-sm text-text-primary dark:text-white outline-none"
+                value={formData.priceCapUnit}
+                onChange={e => setFormData(prev => ({ ...prev, priceCapUnit: e.target.value as any }))}
+              >
+                <option value="%" className="text-black">%</option>
+                <option value="$" className="text-black">$</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

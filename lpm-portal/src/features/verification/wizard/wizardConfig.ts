@@ -1,4 +1,4 @@
-import type { Contact } from '../../../dataModel'; // Note: This might also need ../../../../ depending on exact folder depth, check this too!
+import type { Contact } from '../../../dataModel';
 
 // --- CONSTANTS ---
 export const VENDORS = ["Schindler", "Otis", "TK Elevator", "KONE", "Other"];
@@ -13,7 +13,6 @@ export const CHECKLIST_ITEMS = [
 ];
 
 // --- TYPES ---
-// *IMPORTANT*: Ensure 'export' is here
 export interface WizardFormData {
   // Triage
   hasElevators: boolean | null;
