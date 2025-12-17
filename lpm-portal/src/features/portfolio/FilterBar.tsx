@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { Filter, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { LegacyProperty } from '../../dataModel';
+import type { Property } from '../../dataModel';
 
 interface FilterBarProps {
-  properties: LegacyProperty[]; // UPDATED
+  properties: Property[]; // UPDATED
   filters: {
     state: string;
     city: string;

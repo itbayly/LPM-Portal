@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
 import { FileText, Download, Trash2, Loader2, UploadCloud, FileImage } from 'lucide-react';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../../lib/storage';
-import type { LegacyProperty, PropertyDocument, UserProfile } from '../../../dataModel';
+import type { Property, PropertyDocument, UserProfile } from '../../../dataModel';
 
 interface Props {
-  property: LegacyProperty;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  property: Property;
+  onUpdate: (id: string, data: Partial<Property>) => void;
   profile: UserProfile | null;
 }
 

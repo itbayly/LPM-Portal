@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore'; 
 import { auth, db } from '../../lib/firebase';
-import { Lock, AlertCircle, Sun, Moon } from 'lucide-react'; 
+import { AlertCircle, Sun, Moon, Mail, Lock } from 'lucide-react'; 
 import NoiseOverlay from '../landing/components/NoiseOverlay';
 
 // --- TYPES & HELPERS ---
@@ -19,19 +19,21 @@ const InputSlot = ({
   readOnly = false,
   autoFocus = false
 }: any) => {
-  const [isFocused, setIsFocused] = useState(false);
-
   return (
-    <div className="relative group">
-      <label className="text-[10px] font-bold uppercase tracking-wide text-text-secondary dark:text-slate-400 mb-1.5 block opacity-70">
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-slate-600 dark:text-slate-400 font-sans ml-1 transition-colors">
         {label}
       </label>
       <div className={`
-        relative flex items-center bg-black/5 dark:bg-white/5 rounded-t-sm overflow-hidden
-        ${readOnly ? 'opacity-60 cursor-not-allowed' : 'cursor-text'}
+        relative flex items-center rounded-xl overflow-hidden transition-all duration-300
+        bg-white/40 dark:bg-white/5 border border-transparent
+        focus-within:bg-white dark:focus-within:bg-white/10
+        focus-within:border-indigo-500/30 dark:focus-within:border-indigo-400/30
+        focus-within:shadow-[0_0_0_4px_rgba(99,102,241,0.1)]
+        ${readOnly ? 'opacity-60 cursor-not-allowed' : 'cursor-text hover:bg-white/60 dark:hover:bg-white/10'}
       `}>
         {Icon && (
-          <div className="pl-3 text-text-secondary dark:text-slate-400">
+          <div className="pl-4 text-slate-400 dark:text-slate-500 transition-colors">
             <Icon className="w-4 h-4" />
           </div>
         )}
@@ -41,20 +43,9 @@ const InputSlot = ({
           onChange={onChange}
           readOnly={readOnly}
           autoFocus={autoFocus}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className="w-full h-12 bg-transparent border-none outline-none text-sm px-3 text-text-primary dark:text-white font-mono placeholder:text-slate-400/50"
+          className="w-full h-12 bg-transparent border-none outline-none text-sm px-4 text-slate-900 dark:text-white font-sans placeholder:text-slate-400/70 dark:placeholder:text-slate-500 transition-colors"
           spellCheck={false}
         />
-        
-        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-text-secondary/20">
-          <motion.div 
-            initial={{ width: "0%" }}
-            animate={{ width: isFocused ? "100%" : "0%" }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="h-full mx-auto bg-brand dark:bg-cyan-400"
-          />
-        </div>
       </div>
     </div>
   );
@@ -118,23 +109,21 @@ export default function LoginPage() {
       } else {
         // --- SIGN UP LOGIC ---
         if (password !== confirmPassword) throw new Error("Passkeys do not match.");
-        if (password.length < 6) throw new Error("Passkey strength insufficient (min 6 chars).");
+        if (password.length < 6) throw new Error("Password must be at least 6 characters.");
 
         // 1. Create Auth User
-        await createUserWithEmailAndPassword(auth, email, password); // REMOVED 'const cred =' assignment
+        await createUserWithEmailAndPassword(auth, email, password);
         
         // 2. Create Profile Doc (Self-Service)
-        // We assume anyone signing up from the login page is a standard "Property Manager"
         const userRef = doc(db, "users", email.toLowerCase());
-        
-        // Only set if it doesn't exist (prevent overwriting if invite existed)
         const userSnap = await getDoc(userRef);
+        
         if (!userSnap.exists()) {
           await setDoc(userRef, {
             email: email.toLowerCase(),
-            name: email.split('@')[0], // Default name from email
-            role: 'pm',                // Default role
-            scope: { type: 'portfolio', value: 'personal' }, // Default scope
+            name: email.split('@')[0], 
+            role: 'pm',                
+            scope: { type: 'portfolio', value: 'personal' }, 
             createdAt: new Date().toISOString()
           });
         }
@@ -152,12 +141,20 @@ export default function LoginPage() {
   const isSignUp = mode === 'signup' || isInvite;
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden font-sans selection:bg-brand selection:text-white flex items-center justify-center bg-[#F2F4F6] dark:bg-[#050507] transition-colors duration-500">
+    <div className="relative min-h-screen w-full overflow-hidden font-sans selection:bg-indigo-500/20 dark:selection:bg-indigo-500/30 selection:text-indigo-600 dark:selection:text-indigo-200 flex items-center justify-center transition-colors duration-700 bg-gradient-to-br from-slate-100 via-indigo-50/30 to-white dark:from-[#0F172A] dark:via-[#020617] dark:to-[#0F172A]">
       
-      <NoiseOverlay />
+      {/* 1. ENVIRONMENT LAYERS */}
+      {/* Noise - Subtler in Light Mode */}
+      <div className="opacity-40 dark:opacity-70 transition-opacity duration-700">
+        <NoiseOverlay />
+      </div>
       
-      <div className="fixed -bottom-40 -left-40 w-[600px] h-[600px] bg-[#E0F2FE] rounded-full blur-3xl opacity-40 pointer-events-none dark:hidden mix-blend-multiply" />
-      <div className="fixed -top-40 -right-40 w-[600px] h-[600px] bg-[#2E1065] rounded-full blur-3xl opacity-20 pointer-events-none hidden dark:block mix-blend-screen" />
+      {/* The Aurora Orb - Stronger Blue Haze in Light Mode */}
+      <motion.div 
+        animate={{ scale: [1, 1.1, 1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none transition-colors duration-700 bg-indigo-500/20 dark:bg-indigo-500/20" 
+      />
 
       {/* --- THEME TOGGLE ANCHOR --- */}
       <motion.button
@@ -165,7 +162,7 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
         onClick={toggleTheme}
-        className="fixed top-6 right-6 z-50 p-3 rounded-full bg-white/10 dark:bg-black/10 backdrop-blur-md border border-white/20 dark:border-white/10 text-text-secondary hover:text-text-primary dark:text-slate-400 dark:hover:text-white hover:bg-white/20 transition-all shadow-sm group"
+        className="fixed top-6 right-6 z-50 p-3 rounded-full backdrop-blur-md transition-all shadow-lg group bg-white/40 border border-white/50 text-slate-500 hover:bg-white/60 hover:text-indigo-600 dark:bg-white/5 dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
       >
         {isDark ? (
           <Sun className="w-5 h-5 group-hover:text-yellow-400 transition-colors" />
@@ -174,50 +171,41 @@ export default function LoginPage() {
         )}
       </motion.button>
 
-      {/* 2. THE ACCESS PANEL */}
+      {/* 2. THE CARD (Milled Glass Lens) */}
       <motion.div 
-        initial={{ scale: 0.98, opacity: 0, filter: 'blur(10px)' }}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ 
           scale: 1, 
           opacity: 1, 
-          filter: 'blur(0px)',
-          x: [0, -10, 10, -10, 10, 0] 
+          y: 0,
+          x: [0, -5, 5, -5, 5, 0] 
         }}
         key={shakeKey === 0 ? 'init' : shakeKey} 
         transition={{ 
-          duration: shakeKey === 0 ? 0.4 : 0.4, 
-          ease: "easeOut",
+          duration: shakeKey === 0 ? 0.6 : 0.4, 
+          ease: [0.16, 1, 0.3, 1],
           x: { duration: 0.4 } 
         }}
-        className="relative z-10 w-[90%] max-w-[420px]"
+        className="relative z-10 w-[90%] max-w-[400px]"
       >
-        <div 
-          className="p-[1px] rounded-lg shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)]"
-          style={{
-            background: "linear-gradient(135deg, var(--border-start), var(--border-end))",
-          }}
-        >
-          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] dark:from-[rgba(0,240,255,0.3)] dark:to-[rgba(112,0,255,0.3)] opacity-100" />
-
-          <div className="relative bg-white/60 dark:bg-[#0A0A0C]/60 backdrop-blur-xl rounded-lg p-8 overflow-hidden">
+        {/* Glass Container - Increased Transparency & Blur */}
+        <div className="relative backdrop-blur-2xl rounded-3xl p-8 md:p-10 overflow-hidden transition-all duration-500 bg-white/40 border border-white/80 shadow-[0_30px_60px_-12px_rgba(50,50,93,0.15)] dark:bg-white/5 dark:border-white/20 dark:shadow-[0_20px_50px_-12px_rgba(79,70,229,0.15)] ring-1 ring-black/5">
             
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h1 className="font-extrabold tracking-[0.25em] text-text-primary dark:text-white text-xl">VNDR</h1>
-                <p className={`font-mono text-[10px] font-bold mt-1 tracking-widest transition-colors ${error ? 'text-red-500' : 'text-text-secondary/50 dark:text-slate-400'}`}>
-                  {isInvite ? 'ESTABLISH CONNECTION' : (error ? 'CREDENTIALS REJECTED' : 'IDENTIFICATION REQUIRED')}
-                </p>
-              </div>
-              <div className="relative flex items-center justify-center w-4 h-4">
-                <div className={`w-1.5 h-1.5 rounded-full ${error ? 'bg-red-500 animate-pulse' : 'bg-[#10B981] animate-pulse'}`} />
-                {error && <div className="absolute inset-0 bg-red-500/20 rounded-full animate-ping" />}
-              </div>
+            {/* A. HEADER */}
+            <div className="text-center mb-8">
+              <h1 className="font-sans font-semibold text-xl tracking-tight transition-colors text-slate-900 dark:text-white">
+                {isInvite ? 'Activate Account' : 'Welcome to VNDR'}
+              </h1>
+              <p className="text-sm mt-2 transition-colors text-slate-500 dark:text-slate-400">
+                Your portfolio command center is ready.
+              </p>
             </div>
 
+            {/* B. TOGGLE (Fixed Grid Layout) */}
             {!isInvite && (
-              <div className="relative flex bg-black/5 dark:bg-white/5 p-1 rounded-md mb-8">
+              <div className="relative grid grid-cols-2 p-1 rounded-full mb-8 transition-colors duration-300 bg-slate-200/50 border border-white/40 dark:bg-black/20 dark:border-white/5">
                 <motion.div 
-                  className="absolute top-1 bottom-1 rounded-sm bg-white dark:bg-slate-700 shadow-sm"
+                  className="absolute top-1 bottom-1 rounded-full shadow-sm transition-all duration-300 bg-white dark:bg-slate-700"
                   initial={false}
                   animate={{ 
                     left: mode === 'signin' ? 4 : '50%', 
@@ -227,26 +215,27 @@ export default function LoginPage() {
                 />
                 <button 
                   onClick={() => { setMode('signin'); setError(''); }}
-                  className={`flex-1 relative z-10 text-xs font-bold py-2 text-center transition-colors ${mode === 'signin' ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white'}`}
+                  className={`relative z-10 text-xs font-semibold py-2 text-center transition-colors ${mode === 'signin' ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                 >
-                  SIGN IN
+                  Sign In
                 </button>
                 <button 
                   onClick={() => { setMode('signup'); setError(''); }}
-                  className={`flex-1 relative z-10 text-xs font-bold py-2 text-center transition-colors ${mode === 'signup' ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white'}`}
+                  className={`relative z-10 text-xs font-semibold py-2 text-center transition-colors ${mode === 'signup' ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                 >
-                  SIGN UP
+                  Sign Up
                 </button>
               </div>
             )}
 
-            <form onSubmit={handleAuth} className="space-y-6">
+            {/* C. FORM */}
+            <form onSubmit={handleAuth} className="space-y-5">
               <InputSlot 
-                label="EMAIL ADDRESS" 
+                label="Email Address" 
                 value={email}
                 onChange={(e: any) => setEmail(e.target.value)}
                 readOnly={isInvite}
-                icon={isInvite ? Lock : undefined}
+                icon={Mail}
                 autoFocus={!isInvite}
               />
 
@@ -259,10 +248,11 @@ export default function LoginPage() {
                   layout
                 >
                   <InputSlot 
-                    label={isInvite ? "SET SECURE PASSWORD" : "PASSWORD"}
+                    label={isInvite ? "New Password" : "Password"}
                     type="password"
                     value={password}
                     onChange={(e: any) => setPassword(e.target.value)}
+                    icon={Lock} // Changed to Lock icon
                   />
                 </motion.div>
 
@@ -272,69 +262,65 @@ export default function LoginPage() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden pt-6"
+                    className="overflow-hidden"
                   >
                     <InputSlot 
-                      label="CONFIRM PASSWORD"
+                      label="Confirm Password"
                       type="password"
                       value={confirmPassword}
                       onChange={(e: any) => setConfirmPassword(e.target.value)}
+                      icon={Lock}
                     />
                   </motion.div>
                 )}
               </AnimatePresence>
 
+              {/* Error Message */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="flex items-start gap-2 text-xs font-medium p-3 rounded-xl border transition-colors text-red-600 bg-red-50 border-red-100 dark:text-red-400 dark:bg-red-900/20 dark:border-red-900/30"
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{error}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* D. PRIMARY BUTTON */}
               <button 
                 type="submit"
                 disabled={isLoading}
                 className={`
-                  relative w-full h-12 mt-4 rounded-sm font-bold text-xs tracking-widest uppercase overflow-hidden transition-all
-                  ${isLoading ? 'cursor-not-allowed opacity-80' : 'hover:opacity-90 active:scale-[0.99]'}
-                  bg-[#0F172A] text-white dark:bg-[#F8FAFC] dark:text-black
+                  w-full py-3.5 mt-2 rounded-full font-semibold text-sm tracking-wide text-white
+                  bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500
+                  shadow-lg hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 transition-all duration-200
+                  flex items-center justify-center gap-2
+                  ${isLoading ? 'opacity-80 cursor-not-allowed' : ''}
                 `}
               >
-                <div className="relative z-10 flex items-center justify-center gap-2">
-                  {isLoading ? "SCANNING..." : (isInvite ? "ACTIVATE PROFILE" : (isSignUp ? "INITIALIZE ACCOUNT" : "AUTHENTICATE"))}
-                </div>
-                
-                {isLoading && (
+                {isLoading ? (
                   <motion.div 
-                    initial={{ x: '-100%' }}
-                    animate={{ x: '200%' }}
-                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-black/10"
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
                   />
+                ) : (
+                  isInvite ? "Activate Profile" : (isSignUp ? "Create Account" : "Sign In")
                 )}
               </button>
             </form>
 
-            <AnimatePresence>
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-4 flex items-start gap-2 text-xs text-red-500 font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-sm border border-red-100 dark:border-red-900/30"
-                >
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{error}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <div className="mt-8 flex justify-center gap-6 text-xs font-medium transition-colors text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
+              <a href="#" className="transition-colors">Help & Support</a>
+              <a href="#" className="transition-colors">Forgot Password?</a>
+            </div>
 
-          </div>
         </div>
       </motion.div>
-
-      <div className="fixed bottom-0 left-0 right-0 p-6 flex justify-between items-end text-[10px] font-mono uppercase text-text-secondary/40 select-none pointer-events-none">
-        <div>
-          SECURE CONNECTION // TLS 1.3
-        </div>
-        <div className="flex gap-4 pointer-events-auto dark:text-slate-400">
-          <a href="#" className="hover:text-text-primary dark:hover:text-white hover:underline transition-colors">Help</a>
-          <a href="#" className="hover:text-text-primary dark:hover:text-white hover:underline transition-colors">Forgot Credentials?</a>
-        </div>
-      </div>
 
     </div>
   );

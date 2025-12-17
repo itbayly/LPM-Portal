@@ -8,10 +8,10 @@ import {
   writeBatch 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import type { LegacyProperty, UserProfile } from '../dataModel';
+import type { Property, UserProfile } from '../dataModel'; // UPDATED
 
 export function useProperties() {
-  const [properties, setProperties] = useState<LegacyProperty[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]); // UPDATED
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +26,7 @@ export function useProperties() {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as LegacyProperty[];
+      })) as Property[]; // UPDATED
       
       setProperties(data);
     } catch (err) {
@@ -37,7 +37,7 @@ export function useProperties() {
     }
   };
 
-  const updateProperty = async (id: string, data: Partial<LegacyProperty>) => {
+  const updateProperty = async (id: string, data: Partial<Property>) => { // UPDATED
     try {
       const ref = doc(db, 'properties', id);
       await updateDoc(ref, data);
@@ -51,8 +51,7 @@ export function useProperties() {
     }
   };
 
-  // Combined Ingestion (Props + Users)
-  const ingestProperties = async (newProps: LegacyProperty[], newUsers: UserProfile[]) => {
+  const ingestProperties = async (newProps: Property[], newUsers: UserProfile[]) => { // UPDATED
     setLoading(true);
     try {
       const batch = writeBatch(db);
@@ -79,7 +78,6 @@ export function useProperties() {
     }
   };
 
-  // --- NEW: User-Only Ingestion (Fixes your error) ---
   const ingestUsers = async (newUsers: UserProfile[]) => {
     setLoading(true);
     try {
@@ -103,7 +101,7 @@ export function useProperties() {
     // Optional implementation
   };
 
-  const clearDatabase = async (_options: any) => { // PREFIXED WITH _
+  const clearDatabase = async (_options: any) => {
     // Optional implementation
   };
 
@@ -113,7 +111,7 @@ export function useProperties() {
     error, 
     updateProperty, 
     ingestProperties, 
-    ingestUsers, // <--- EXPORTED HERE
+    ingestUsers, 
     seedDatabase, 
     clearDatabase 
   };

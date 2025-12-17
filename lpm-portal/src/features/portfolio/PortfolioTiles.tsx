@@ -1,28 +1,40 @@
-import { Building2, MapPin, AlertCircle, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
+import { Building2, MapPin, ArrowRight, AlertCircle, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { LegacyProperty } from '../../dataModel';
+import type { Property } from '../../dataModel';
 
 interface PortfolioTilesProps {
-  data: LegacyProperty[];
-  onCardClick: (property: LegacyProperty) => void;
-  onAddProperty: () => void; // <--- NEW PROP
+  data: Property[];
+  onCardClick: (property: Property) => void;
+  onAddProperty: () => void;
 }
 
 export default function PortfolioTiles({ data, onCardClick, onAddProperty }: PortfolioTilesProps) {
 
   // --- HELPER: DETERMINE DOT COLOR ---
   const getHealthStatus = (status: string) => {
+    // RED: Critical Action Needed
     if ([
-      'missing_data', 'critical', 'critical_action_required', 
-      'cancellation_window_open', 'no_service_contract', 'service_contract_needed'
+      'missing_data', 
+      'critical', 
+      'critical_action_required', 
+      'cancellation_window_open',
+      'no_service_contract',
+      'service_contract_needed'
     ].includes(status)) {
       return { color: 'bg-red-500', shadow: 'shadow-red-500/50', icon: AlertCircle, label: 'Action Required' };
     }
     
-    if (['notice_due_soon', 'warning', 'pending_review', 'pending_rpm_review'].includes(status)) {
+    // YELLOW: Warning / Review
+    if ([
+      'notice_due_soon', 
+      'warning', 
+      'pending_review',
+      'pending_rpm_review'
+    ].includes(status)) {
       return { color: 'bg-yellow-500', shadow: 'shadow-yellow-500/50', icon: AlertTriangle, label: 'Review Needed' };
     }
 
+    // GREEN: Good
     return { color: 'bg-emerald-500', shadow: 'shadow-emerald-500/50', icon: CheckCircle2, label: 'Operational' };
   };
 
@@ -129,10 +141,10 @@ export default function PortfolioTiles({ data, onCardClick, onAddProperty }: Por
       {/* QUICK ADD BUTTON (Grid Slot) */}
       <button 
         onClick={onAddProperty}
-        className="border-2 border-dashed border-black/5 dark:border-white/5 rounded-xl flex flex-col items-center justify-center text-center p-6 opacity-60 hover:opacity-100 hover:border-brand/30 dark:hover:border-blue-400/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all h-[220px] group"
+        className="border-2 border-dashed border-black/10 dark:border-white/10 rounded-xl flex flex-col items-center justify-center text-center p-6 opacity-60 hover:opacity-100 hover:border-brand/30 dark:hover:border-blue-400/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all h-[220px] group"
       >
         <div className="p-3 bg-black/5 dark:bg-white/5 rounded-full mb-3 group-hover:scale-110 transition-transform">
-          <Plus className="w-6 h-6 text-text-secondary dark:text-slate-400 group-hover:text-brand dark:group-hover:text-blue-400" />
+          <Plus className="w-6 h-6 text-text-secondary dark:text-slate-500 group-hover:text-brand dark:group-hover:text-blue-400" />
         </div>
         <span className="text-sm font-bold text-text-secondary dark:text-slate-500 group-hover:text-text-primary dark:group-hover:text-white">Add Another Asset</span>
       </button>

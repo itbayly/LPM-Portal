@@ -11,16 +11,16 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import type { LegacyProperty } from '../../dataModel';
+import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface MasterGridProps {
-  onRowClick: (property: LegacyProperty) => void;
-  data?: LegacyProperty[]; 
+  onRowClick: (property: Property) => void;
+  data?: Property[]; 
 }
 
-type SortKey = keyof LegacyProperty | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
+type SortKey = keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
 
 type SortState = {
   key: SortKey;
@@ -47,7 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 // --- HELPERS ---
-const getValue = (item: LegacyProperty, path: string) => {
+const getValue = (item: Property, path: string) => {
   if (path.includes('.')) {
     const [obj, key] = path.split('.');
     return (item as any)[obj]?.[key];
@@ -55,7 +55,7 @@ const getValue = (item: LegacyProperty, path: string) => {
   return (item as any)[path];
 };
 
-const getUniqueValues = (data: LegacyProperty[], key: string) => {
+const getUniqueValues = (data: Property[], key: string) => {
   const values = new Set<string>();
   data.forEach(item => {
     const val = getValue(item, key);
@@ -271,7 +271,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
       >
         <div className="flex items-center justify-between gap-2" ref={menuRef}>
           <span className={cn(
-            "font-mono text-[10px] uppercase tracking-widest transition-opacity truncate",
+            "font-sans text-[10px] uppercase tracking-widest transition-opacity truncate",
             (isSorted || isFiltered) ? "text-brand dark:text-cyan-400 font-bold" : "text-text-secondary dark:text-slate-400 opacity-70 group-hover:opacity-100"
           )}>
             {label}

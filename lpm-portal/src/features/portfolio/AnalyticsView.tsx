@@ -3,10 +3,10 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import type { LegacyProperty } from '../../dataModel';
+import type { Property } from '../../dataModel';
 
 interface AnalyticsViewProps {
-  data: LegacyProperty[];
+  data: Property[];
 }
 
 // THEME COLORS (Matches Tailwind Config)

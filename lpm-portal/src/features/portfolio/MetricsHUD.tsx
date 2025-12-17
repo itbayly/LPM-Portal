@@ -1,9 +1,9 @@
 import { Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { LegacyProperty, FilterType } from '../../dataModel';
+import type { Property, FilterType } from '../../dataModel';
 
 interface MetricsHUDProps {
-  properties: LegacyProperty[];
+  properties: Property[];
   activeFilter: FilterType;
   onFilterChange: (filter: FilterType) => void;
 }
@@ -57,13 +57,13 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
         
         <div className="flex flex-col items-start leading-none">
           <span className={cn(
-            "text-[10px] font-mono font-bold uppercase tracking-widest mb-1", 
+            "text-[10px] font-sans font-bold uppercase tracking-widest mb-1", 
             isActive ? "text-text-primary dark:text-white" : "text-text-secondary dark:text-slate-500"
           )}>
             {label}
           </span>
           <span className={cn(
-            "text-sm font-bold font-mono tabular-nums",
+            "text-sm font-bold font-sans tabular-nums",
             isActive ? "text-text-primary dark:text-white" : "text-text-secondary dark:text-slate-400"
           )}>
             {value}

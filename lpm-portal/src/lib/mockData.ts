@@ -1,4 +1,4 @@
-import type { LegacyProperty, PropertyStatus, Contact } from '../dataModel'; // UPDATED
+import type { Property, PropertyStatus, Contact } from '../dataModel'; // UPDATED
 
 // 1. Define the Geographic Hierarchy Map
 const GEO_MAP = [
@@ -17,7 +17,7 @@ const GEO_MAP = [
 const VENDORS = ['Otis', 'Kone', 'Schindler', 'ThyssenKrupp', 'Local Independent'];
 const STATUSES: PropertyStatus[] = ['active', 'warning', 'critical', 'missing_data'];
 
-export const generateMockProperties = (count: number): LegacyProperty[] => { // UPDATED RETURN TYPE
+export const generateMockProperties = (count: number): Property[] => { // UPDATED RETURN TYPE
   return Array.from({ length: count }).map((_, i) => {
     // Pick a random location from the hierarchy map
     const location = GEO_MAP[Math.floor(Math.random() * GEO_MAP.length)];

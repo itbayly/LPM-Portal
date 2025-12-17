@@ -1,8 +1,8 @@
 import { User, Mail, Phone, Shield } from 'lucide-react';
-import type { LegacyProperty } from '../../../dataModel';
+import type { Property } from '../../../dataModel';
 
 interface Props {
-  property: LegacyProperty;
+  property: Property;
 }
 
 export default function PropertyLPMResponsibility({ property }: Props) {

@@ -1,4 +1,4 @@
-import type { LegacyProperty, UserProfile } from '../dataModel'; // UPDATED
+import type { Property, UserProfile } from '../dataModel'; // UPDATED
 
 // --- ROSTER DATA (Generated from User List.xlsx) ---
 export const REAL_USERS: UserProfile[] = [
@@ -41,7 +41,7 @@ export const REAL_USERS: UserProfile[] = [
 ];
 
 // --- PROPERTY DATA ---
-export const REAL_PROPERTIES: LegacyProperty[] = []; // UPDATED TYPE
+export const REAL_PROPERTIES: Property[] = []; // UPDATED TYPE
 
 // Helper to populate REAL_PROPERTIES from your raw data structure
 const RAW_DATA = [
@@ -118,4 +118,4 @@ REAL_PROPERTIES.push(...RAW_DATA.map(raw => ({
   autoRenews: true,
   onNationalContract: raw.national === "Yes",
   contacts: []
-} as LegacyProperty))); // UPDATED CAST
+} as Property))); // UPDATED CAST

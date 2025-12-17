@@ -6,7 +6,7 @@ import {
 import { StatusPill } from '../../components/ui/StatusPill';
 import VerificationWizard from '../verification/VerificationWizard';
 import { useAuth } from '../auth/AuthContext';
-import type { LegacyProperty } from '../../dataModel';
+import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,9 +20,9 @@ import PropertyContacts from './components/PropertyContacts';
 import PropertyDocuments from './components/PropertyDocuments';
 
 interface PropertyDetailProps {
-  property: LegacyProperty;
+  property: Property;
   onBack: () => void;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
 // Helper for date parsing

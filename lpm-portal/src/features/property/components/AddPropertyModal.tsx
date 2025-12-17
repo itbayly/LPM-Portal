@@ -3,11 +3,11 @@ import { X, Building2, MapPin, Loader2, ArrowRight } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
-import type { LegacyProperty } from '../../../dataModel';
+import type { Property } from '../../../dataModel';
 
 interface AddPropertyModalProps {
   onClose: () => void;
-  onSuccess: (property: LegacyProperty) => void;
+  onSuccess: (property: Property) => void;
 }
 
 export default function AddPropertyModal({ onClose, onSuccess }: AddPropertyModalProps) {
@@ -34,7 +34,7 @@ export default function AddPropertyModal({ onClose, onSuccess }: AddPropertyModa
       const docId = `prop_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       
       // 2. Create the Clean Asset Object
-      const newProperty: LegacyProperty = {
+      const newProperty: Property = {
         id: docId,
         name: formData.name,
         entityName: formData.name, // Default to name

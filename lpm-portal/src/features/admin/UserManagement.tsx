@@ -6,7 +6,7 @@ import {
 import { useUsers } from '../../hooks/useUsers';
 import { useProperties } from '../../hooks/useProperties';
 import { cn } from '../../lib/utils';
-import type { UserRole, UserProfile, LegacyProperty } from '../../dataModel';
+import type { UserRole, UserProfile, Property } from '../../dataModel';
 
 interface UserManagementProps {
   onBack: () => void;
@@ -38,7 +38,7 @@ export default function UserManagement({ onBack }: UserManagementProps) {
   
   // Edit State
   const [editForm, setEditForm] = useState<UserProfile | null>(null);
-  const [assignedProperties, setAssignedProperties] = useState<LegacyProperty[]>([]);
+  const [assignedProperties, setAssignedProperties] = useState<Property[]>([]);
   const [propertySearch, setPropertySearch] = useState('');
 
   // -- FILTERING --
@@ -112,7 +112,7 @@ export default function UserManagement({ onBack }: UserManagementProps) {
     });
   };
 
-  const addProperty = (prop: LegacyProperty) => {
+  const addProperty = (prop: Property) => {
     if (assignedProperties.find(p => p.id === prop.id)) return;
     setAssignedProperties([...assignedProperties, prop]);
     setPropertySearch('');

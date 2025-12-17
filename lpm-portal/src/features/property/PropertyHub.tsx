@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StatusPill } from '../../components/ui/StatusPill';
-import type { LegacyProperty, Contract } from '../../dataModel';
+import type { Property, Contract } from '../../dataModel';
 
 // Reuse the Wallet View for the specific contract details
 import PropertyDetail from './PropertyDetail';
@@ -14,9 +14,9 @@ import AddContractModal from './components/AddContractModal';
 import type { UIContract } from './components/AddContractModal';
 
 interface PropertyHubProps {
-  property: LegacyProperty;
+  property: Property;
   onBack: () => void;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
 // Define the Service Type for UI rendering

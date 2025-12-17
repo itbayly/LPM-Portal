@@ -1,4 +1,4 @@
-import type { LegacyProperty, PropertyStatus } from '../dataModel';
+import type { Property, PropertyStatus } from '../dataModel';
 
 // Helper to parse dates safely
 const parseDate = (d: string | undefined) => {
@@ -7,7 +7,7 @@ const parseDate = (d: string | undefined) => {
   return isNaN(date.getTime()) ? null : date;
 };
 
-export function calculatePropertyStatus(property: LegacyProperty): PropertyStatus {
+export function calculatePropertyStatus(property: Property): PropertyStatus {
   const today = new Date();
 
   // 1. HARD OVERRIDES (Manual/Workflow Flags)

@@ -1,11 +1,11 @@
 import { StarRating } from '../../../components/ui/StarRating';
 import { cn } from '../../../lib/utils';
-import type { LegacyProperty } from '../../../dataModel';
+import type { Property } from '../../../dataModel';
 import { Briefcase, Hash, Phone, FileText, Building } from 'lucide-react';
 
 interface Props {
-  property: LegacyProperty;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  property: Property;
+  onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
 export default function PropertyVendorCard({ property, onUpdate }: Props) {
@@ -15,7 +15,7 @@ export default function PropertyVendorCard({ property, onUpdate }: Props) {
     onUpdate(property.id, { vendor: { ...property.vendor, [field]: value } });
   };
 
-  const updateField = (field: keyof LegacyProperty, value: any) => {
+  const updateField = (field: keyof Property, value: any) => {
     onUpdate(property.id, { [field]: value });
   };
 

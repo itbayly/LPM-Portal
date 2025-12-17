@@ -1,10 +1,10 @@
 import { ArrowLeft, Building2, AlertTriangle, ShieldCheck } from 'lucide-react'; // REMOVED CheckCircle2
 import { StatusPill } from '../../../components/ui/StatusPill';
-import type { LegacyProperty } from '../../../dataModel';
+import type { Property } from '../../../dataModel';
 import { cn } from '../../../lib/utils';
 
 interface PropertyHeaderProps {
-  property: LegacyProperty;
+  property: Property;
   onBack: () => void;
   onVerify: () => void;
 }

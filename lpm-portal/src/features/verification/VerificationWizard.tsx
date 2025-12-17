@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Loader2, ShieldCheck } from 'lucide-react'; // REMOVED AlertTriangle
 import { useAuth } from '../auth/AuthContext';
 import { uploadFileToStorage } from '../../lib/storage';
-import type { LegacyProperty, PropertyDocument } from '../../dataModel';
+import type { Property, PropertyDocument } from '../../dataModel';
 
 import { 
   CHECKLIST_ITEMS, 
@@ -23,7 +23,7 @@ import Step9_Upload from './wizard/steps/Step9_Upload';
 import Step10_Confirm from './wizard/steps/Step10_Confirm';
 
 interface VerificationWizardProps {
-  property: LegacyProperty; 
+  property: Property; 
   isOpen: boolean;
   onClose: () => void;
   onComplete: (data: any) => void;

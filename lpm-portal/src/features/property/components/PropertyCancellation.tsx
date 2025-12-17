@@ -1,12 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertTriangle, Calendar, Ban, ChevronDown, Edit2, X, Clock } from 'lucide-react'; // REMOVED Download
-import type { LegacyProperty, UserProfile } from '../../../dataModel';
+import type { Property, UserProfile } from '../../../dataModel';
 // REMOVED unused 'cn' import
 
 interface Props {
-  property: LegacyProperty;
+  property: Property;
   profile: UserProfile | null;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
 const parseDateSafe = (dateStr: string | undefined): Date | null => {

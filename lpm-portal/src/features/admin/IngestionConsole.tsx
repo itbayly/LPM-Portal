@@ -3,7 +3,7 @@ import { UploadCloud, FileSpreadsheet, Check, AlertTriangle, X, Download, Loader
 import { cn } from '../../lib/utils';
 import { downloadTemplate, parsePropertyFile, parseUserFile } from '../../lib/excelParser';
 import { useProperties } from '../../hooks/useProperties';
-import type { LegacyProperty, UserProfile } from '../../dataModel';
+import type { Property, UserProfile } from '../../dataModel';
 
 interface IngestionConsoleProps {
   onClose: () => void;
@@ -19,7 +19,7 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
   const [file, setFile] = useState<File | null>(null);
   
   // Staging Data
-  const [parsedProps, setParsedProps] = useState<LegacyProperty[]>([]);
+  const [parsedProps, setParsedProps] = useState<Property[]>([]);
   const [parsedUsers, setParsedUsers] = useState<UserProfile[]>([]);
   
   const [status, setStatus] = useState<'idle' | 'parsing' | 'ready' | 'uploading' | 'complete'>('idle');
@@ -49,8 +49,8 @@ export default function IngestionConsole({ onClose }: IngestionConsoleProps) {
     try {
       if (mode === 'property') {
         const { properties, derivedUsers } = await parsePropertyFile(uploadedFile);
-        // Cast to LegacyProperty for compatibility
-        setParsedProps(properties as unknown as LegacyProperty[]);
+        // Cast to Property for compatibility
+        setParsedProps(properties as unknown as Property[]);
         setParsedUsers(derivedUsers);
       } else {
         const users = await parseUserFile(uploadedFile);

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { DollarSign, Edit2, X, TrendingUp, Calendar, CreditCard } from 'lucide-react';
 import { BILLING_FREQUENCIES } from '../../verification/wizard/wizardConfig';
-import type { LegacyProperty } from '../../../dataModel';
+import type { Property } from '../../../dataModel';
 import { cn } from '../../../lib/utils';
 
 interface Props {
-  property: LegacyProperty;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  property: Property;
+  onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
 // Helper to format YYYY-MM-DD to MM/DD/YYYY

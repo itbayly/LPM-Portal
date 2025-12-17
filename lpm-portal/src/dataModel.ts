@@ -19,7 +19,6 @@ export type PropertyStatus =
 
 export type FilterType = 'all' | 'action_required' | PropertyStatus;
 
-// --- EXPORTED SCOPE TYPE (Fixes useUsers error) ---
 export interface AccessScope {
   type: 'global' | 'area' | 'region' | 'market' | 'portfolio';
   value: string | string[]; 
@@ -30,8 +29,9 @@ export interface UserProfile {
   name: string;
   role: UserRole;
   scope?: AccessScope;
-  phone?: string; // --- ADDED PHONE FIELD (Fixes useUsers error) ---
+  phone?: string;
   lastLogin?: string;
+  uid?: string;
 }
 
 export interface Contact {
@@ -65,7 +65,8 @@ export interface Contract {
   documents?: PropertyDocument[];
 }
 
-export interface LegacyProperty {
+// RENAMED FROM Property
+export interface Property {
   id: string;
   name: string;
   entityName?: string;

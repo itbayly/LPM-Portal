@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { LegacyProperty, UserProfile, UserRole, AccessScope, Contact } from '../dataModel'; // UPDATED
+import type { Property, UserProfile, UserRole, AccessScope, Contact } from '../dataModel'; // UPDATED
 
 // --- TEMPLATES ---
 const PROPERTY_HEADERS = [
@@ -100,7 +100,7 @@ export const parseUserFile = async (file: File): Promise<UserProfile[]> => {
   });
 };
 
-export const parsePropertyFile = async (file: File): Promise<{ properties: LegacyProperty[], derivedUsers: UserProfile[] }> => { // UPDATED RETURN TYPE
+export const parsePropertyFile = async (file: File): Promise<{ properties: Property[], derivedUsers: UserProfile[] }> => { // UPDATED RETURN TYPE
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -111,7 +111,7 @@ export const parsePropertyFile = async (file: File): Promise<{ properties: Legac
         
         const derivedUsersMap = new Map<string, UserProfile>();
 
-        const properties: LegacyProperty[] = jsonData.map((row: any) => { // UPDATED TYPE
+        const properties: Property[] = jsonData.map((row: any) => { // UPDATED TYPE
           const getVal = (key: string) => String(row[key] || '').trim();
           const getNum = (key: string) => Number(row[key]) || 0;
           const getDate = (key: string) => processDate(row[key]);

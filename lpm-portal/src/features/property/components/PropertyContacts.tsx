@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { User, Plus, Trash2, Edit2, Star, Mail, Phone } from 'lucide-react'; // REMOVED X
-import type { LegacyProperty, Contact } from '../../../dataModel';
+import type { Property, Contact } from '../../../dataModel';
 
 interface Props {
-  property: LegacyProperty;
-  onUpdate: (id: string, data: Partial<LegacyProperty>) => void;
+  property: Property;
+  onUpdate: (id: string, data: Partial<Property>) => void;
 }
 
 const ROLES = ['Account Manager', 'General Manager', 'Finance', 'Other'];

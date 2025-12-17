@@ -3,11 +3,11 @@ import {
   ArrowUpRight 
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { LegacyProperty } from '../../dataModel';
+import type { Property } from '../../dataModel';
 
 interface MatrixViewProps {
-  data: LegacyProperty[];
-  onRowClick: (property: LegacyProperty) => void;
+  data: Property[];
+  onRowClick: (property: Property) => void;
 }
 
 // DEFINING THE COLUMNS
