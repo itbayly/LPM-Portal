@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Building2, MapPin, FileText, Loader2, CheckCircle2, 
-  ChevronRight, Search, UploadCloud, Sparkles, X, Sun, Moon,
+  ChevronRight, Search, UploadCloud, Sparkles, Sun, Moon,
   User, Phone, ArrowRight
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -280,7 +280,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-3xl relative z-10"
       >
-        <div className="bg-white/40 dark:bg-[#121212]/80 backdrop-blur-2xl border border-white/80 ring-1 ring-black/5 dark:border-white/10 shadow-2xl shadow-indigo-100/50 dark:shadow-indigo-500/10 rounded-3xl overflow-hidden transition-colors duration-500">
+        <div className="bg-white/40 dark:bg-[#121212]/80 backdrop-blur-2xl border border-white/60 dark:border-white/10 shadow-2xl shadow-indigo-100/50 dark:shadow-indigo-500/10 rounded-3xl overflow-hidden transition-colors duration-500">
           
           {/* Header Progress */}
           <div className="h-1.5 w-full bg-slate-100 dark:bg-white/5">
@@ -307,7 +307,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                 >
                   <div>
                     <h2 className="font-sans font-semibold text-2xl tracking-tight text-slate-900 dark:text-white mb-2">
-                      Welcome to VNDR
+                      Welcome to VNDR.
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400">Let's start by setting up your profile.</p>
                   </div>
@@ -370,7 +370,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                 >
                   <div>
                     <h2 className="font-sans font-semibold text-2xl tracking-tight text-slate-900 dark:text-white mb-2">
-                      Let's set up your first building
+                      Let's set up your first building.
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400">Initialize your command center.</p>
                   </div>

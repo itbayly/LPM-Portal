@@ -1,4 +1,4 @@
-import { Building2, MapPin, ArrowRight, AlertCircle, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
+import { Building2, MapPin, AlertCircle, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Property } from '../../dataModel';
 

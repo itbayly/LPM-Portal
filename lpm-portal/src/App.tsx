@@ -4,7 +4,7 @@ import LoginPage from './features/auth/LoginPage';
 import LandingPage from './features/landing/LandingPage';
 import MasterGrid from './features/portfolio/MasterGrid';
 import PortfolioTiles from './features/portfolio/PortfolioTiles'; 
-import MatrixView from './features/portfolio/MatrixView';
+import MatrixView from './features/portfolio/MatrixView'; 
 import PropertyHub from './features/property/PropertyHub'; 
 import MetricsHUD from './features/portfolio/MetricsHUD';
 import IngestionConsole from './features/admin/IngestionConsole';
@@ -187,6 +187,7 @@ function Dashboard() {
   if (error) return <div className="p-xl text-red-600 font-bold">{error}</div>;
 
   return (
+    // REVERT: Removed key prop to restore CSS transition animations
     <div className="min-h-screen bg-canvas dark:bg-[#0F172A] flex flex-col h-screen transition-colors duration-500 relative overflow-hidden">
       
       <NoiseOverlay />
