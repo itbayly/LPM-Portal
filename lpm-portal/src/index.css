@@ -1,38 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --canvas: #F2F4F6;
+    --brand: #2563EB;
+  }
+
   body {
-    @apply bg-canvas dark:bg-slate-950 text-text-primary font-sans antialiased;
-    font-feature-settings: "tnum"; 
+    @apply bg-canvas dark:bg-[#0F172A] text-text-primary font-sans antialiased transition-colors duration-500 ease-in-out;
+    font-feature-settings: "tnum";
     font-variant-numeric: tabular-nums;
   }
 }
 
-/* Scrollbar polish for internal tables */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 rounded-full border-2 border-transparent bg-clip-padding;
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-300;
+  @apply bg-slate-400 dark:bg-slate-600;
 }
 
-/* --- LANDING PAGE UTILITIES --- */
+/* Glass Components */
 .glass-panel {
-  @apply backdrop-blur-md bg-white/70 border border-white/20;
+  @apply backdrop-blur-md bg-white/70 border border-white/20 transition-all duration-500 ease-in-out;
 }
 
-/* Dark mode support for glass panel if needed */
 .dark .glass-panel {
-  @apply bg-black/50 border-white/10;
+  @apply bg-[#0F172A]/60 border-white/10;
+}
+
+.glass-button {
+  @apply hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all duration-300 ease-in-out;
 }

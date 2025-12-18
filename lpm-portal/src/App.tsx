@@ -187,7 +187,7 @@ function Dashboard() {
   if (error) return <div className="p-xl text-red-600 font-bold">{error}</div>;
 
   return (
-    // REVERT: Removed key prop to restore CSS transition animations
+    // FIX: Removed 'key' prop to restore smooth animations
     <div className="min-h-screen bg-canvas dark:bg-[#0F172A] flex flex-col h-screen transition-colors duration-500 relative overflow-hidden">
       
       <NoiseOverlay />
