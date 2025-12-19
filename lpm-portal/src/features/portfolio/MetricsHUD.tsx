@@ -30,6 +30,29 @@ export default function MetricsHUD({ properties, activeFilter, onFilterChange }:
     ].includes(p.status)
   ).length;
 
+  // --- SMART STATUS (Small Portfolios) ---
+  if (total <= 5) {
+    const isCritical = actionRequiredCount > 0;
+    
+    return (
+      <button
+        onClick={() => isCritical ? onFilterChange('action_required') : onFilterChange('all')}
+        className={cn(
+          "flex items-center gap-3 px-5 py-2.5 rounded-xl border backdrop-blur-md shadow-sm transition-all duration-300 h-11",
+          isCritical
+            ? "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+        )}
+      >
+        {isCritical ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+        <span className="text-xs font-bold font-sans uppercase tracking-wide">
+          {isCritical ? `${actionRequiredCount} Action Items` : "System Operational"}
+        </span>
+      </button>
+    );
+  }
+
+  // --- FULL HUD (Large Portfolios) ---
   const KPI = ({ label, value, icon: Icon, activeColor, filter }: any) => {
     const isActive = activeFilter === filter;
     

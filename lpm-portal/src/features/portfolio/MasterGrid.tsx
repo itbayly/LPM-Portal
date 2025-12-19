@@ -10,6 +10,7 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
+  SearchX
 } from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
@@ -18,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface MasterGridProps {
   onRowClick: (property: Property) => void;
   data?: Property[]; 
+  isFiltered?: boolean;
 }
 
 type SortKey = keyof Property | 'vendor.name' | 'vendor.rating' | 'vendor.currentPrice';
@@ -27,7 +29,7 @@ type SortState = {
   direction: 'asc' | 'desc';
 };
 
-// --- STATUS MAPPING ---
+// ... (Rest of constants/helpers remain same) ...
 const STATUS_LABELS: Record<string, string> = {
   'active': 'Active',
   'active_contract': 'Active Contract',
@@ -46,7 +48,6 @@ const STATUS_LABELS: Record<string, string> = {
   'on_national_agreement': 'National Agmt'
 };
 
-// --- HELPERS ---
 const getValue = (item: Property, path: string) => {
   if (path.includes('.')) {
     const [obj, key] = path.split('.');
@@ -71,7 +72,7 @@ const formatValue = (key: string, value: string) => {
   return value;
 };
 
-export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
+export default function MasterGrid({ onRowClick, data = [], isFiltered }: MasterGridProps) {
   // State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -125,6 +126,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
     setCurrentPage(1);
   };
 
+  // ... (HeaderMenu and HeaderCell components remain same) ...
   // --- SUB-COMPONENT: HEADER MENU (Glassmorphic) ---
   const HeaderMenu = ({ columnKey, options }: { columnKey: string, options: string[] }) => {
     const initialSelection = activeFilters[columnKey] || options;
@@ -338,26 +340,40 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5 dark:divide-white/5">
-            {currentData.map((prop) => (
-              <tr 
-                key={prop.id} 
-                onClick={() => onRowClick(prop)} 
-                className="group cursor-pointer hover:bg-brand/5 dark:hover:bg-brand/10 transition-colors duration-200"
-              >
-                <td className="py-3 px-4"><StatusPill status={prop.status} /></td>
-                <td className="py-3 px-4 text-xs font-bold text-text-primary dark:text-white group-hover:text-brand dark:group-hover:text-cyan-400 transition-colors">{prop.name}</td>
-                <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.address}</td>
-                <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.city}</td>
-                <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.state}</td>
-                <td className="py-3 px-4 text-xs font-mono text-text-secondary dark:text-slate-500 opacity-70">{prop.zip}</td>
-                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-sm">{prop.unitCount}</td>
-                <td className="py-3 px-4 text-xs font-medium text-text-primary dark:text-slate-200">{prop.vendor.name}</td>
-                <td className="py-3 px-4"><div className="pointer-events-none scale-75 origin-left"><StarRating value={prop.vendor.rating || 0} readonly /></div></td>
-                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-white text-right tracking-tight">${(prop.vendor.currentPrice || 0).toLocaleString()}</td>
-                <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-right opacity-90">{prop.contractEndDate}</td>
-                <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400 truncate max-w-[120px]">{prop.cancellationWindow}</td>
+            {/* NO RESULTS STATE */}
+            {currentData.length === 0 ? (
+              <tr>
+                <td colSpan={12} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center opacity-50">
+                    <SearchX className="w-10 h-10 text-slate-400 mb-2" />
+                    <p className="text-sm font-medium text-text-primary dark:text-white">
+                      {isFiltered ? "No Matching Results" : "No Assets Found"}
+                    </p>
+                  </div>
+                </td>
               </tr>
-            ))}
+            ) : (
+              currentData.map((prop) => (
+                <tr 
+                  key={prop.id} 
+                  onClick={() => onRowClick(prop)} 
+                  className="group cursor-pointer hover:bg-brand/5 dark:hover:bg-brand/10 transition-colors duration-200"
+                >
+                  <td className="py-3 px-4"><StatusPill status={prop.status} /></td>
+                  <td className="py-3 px-4 text-xs font-bold text-text-primary dark:text-white group-hover:text-brand dark:group-hover:text-cyan-400 transition-colors">{prop.name}</td>
+                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.address}</td>
+                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.city}</td>
+                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.state}</td>
+                  <td className="py-3 px-4 text-xs font-mono text-text-secondary dark:text-slate-500 opacity-70">{prop.zip}</td>
+                  <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-sm">{prop.unitCount}</td>
+                  <td className="py-3 px-4 text-xs font-medium text-text-primary dark:text-slate-200">{prop.vendor.name}</td>
+                  <td className="py-3 px-4"><div className="pointer-events-none scale-75 origin-left"><StarRating value={prop.vendor.rating || 0} readonly /></div></td>
+                  <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-white text-right tracking-tight">${(prop.vendor.currentPrice || 0).toLocaleString()}</td>
+                  <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-right opacity-90">{prop.contractEndDate}</td>
+                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400 truncate max-w-[120px]">{prop.cancellationWindow}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -378,7 +394,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
             </select>
           </div>
           <span className="tabular-nums opacity-70">
-            {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedData.length)} / {sortedData.length}
+            {currentData.length > 0 ? `${startIndex + 1}-${Math.min(startIndex + itemsPerPage, sortedData.length)} / ${sortedData.length}` : '0-0 / 0'}
           </span>
         </div>
         
@@ -392,7 +408,7 @@ export default function MasterGrid({ onRowClick, data = [] }: MasterGridProps) {
           </button>
           <button 
             onClick={() => currentPage < totalPages && setCurrentPage(p => p + 1)} 
-            disabled={currentPage === totalPages} 
+            disabled={currentPage === totalPages || totalPages === 0} 
             className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-primary dark:text-white transition-colors border border-transparent hover:border-black/5 dark:hover:border-white/5"
           >
             <ChevronRight className="w-4 h-4" />

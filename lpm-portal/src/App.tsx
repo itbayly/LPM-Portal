@@ -16,8 +16,8 @@ import OnboardingWizard from './features/onboarding/OnboardingWizard';
 import NoiseOverlay from './features/landing/components/NoiseOverlay';
 
 import { 
-  LayoutDashboard, LogOut, Upload, Search, PieChart, Users, AlertTriangle,
-  Sun, Moon, LayoutGrid, Table as TableIcon, Grip 
+  Layers, LogOut, Upload, Search, PieChart, Users, AlertTriangle,
+  Sun, Moon, LayoutGrid, Table as TableIcon, Grip, Bell, CircleHelp
 } from 'lucide-react';
 import { useProperties } from './hooks/useProperties';
 import { cn } from './lib/utils';
@@ -124,6 +124,16 @@ function Dashboard() {
     return result;
   }, [searchResults, statusFilter]);
 
+  // --- NOTIFICATION LOGIC ---
+  const hasNotifications = useMemo(() => {
+    return accessibleProperties.some(p => 
+      ['critical', 'critical_action_required', 'cancellation_window_open', 'missing_data'].includes(p.status)
+    );
+  }, [accessibleProperties]);
+
+  // --- FILTER STATE CALCULATION ---
+  const isFiltered = searchQuery !== '' || statusFilter !== 'all';
+
   // --- HANDLERS ---
   const handlePropertyUpdate = (id: string, data: Partial<Property>) => {
     updateProperty(id, data);
@@ -187,7 +197,6 @@ function Dashboard() {
   if (error) return <div className="p-xl text-red-600 font-bold">{error}</div>;
 
   return (
-    // FIX: Removed 'key' prop to restore smooth animations
     <div className="min-h-screen bg-canvas dark:bg-[#0F172A] flex flex-col h-screen transition-colors duration-500 relative overflow-hidden">
       
       <NoiseOverlay />
@@ -207,17 +216,39 @@ function Dashboard() {
       ) : (
         <>
           <nav className="h-16 px-6 shrink-0 z-50 flex items-center justify-between mt-4 mx-4 rounded-xl glass-panel relative">
+            
+            {/* LEFT: IDENTITY (BREADCRUMB) */}
             <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setSelectedProperty(null)}>
-              <div className="p-2 bg-black/5 dark:bg-white/10 rounded-md border border-black/5 dark:border-white/5 group-hover:scale-105 transition-transform">
-                 <LayoutDashboard className="h-5 w-5 text-text-primary dark:text-white" />
+              <div className="p-2 bg-brand/5 dark:bg-white/5 rounded-lg transition-colors group-hover:bg-brand/10 dark:group-hover:bg-white/10">
+                 <Layers className="w-5 h-5 text-brand dark:text-blue-400" />
               </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-wide text-text-primary dark:text-white leading-none">VNDR PLATFORM</span>
-                <span className="text-[10px] font-medium text-text-secondary dark:text-slate-400 uppercase tracking-widest mt-1">Portfolio: {profile?.role === 'admin' ? 'Global' : (profile?.role === 'pm' && profile?.scope?.value === 'personal' ? 'Personal' : 'Enterprise')}</span>
+              <div className="flex items-center gap-3 font-sans">
+                <span className="font-bold text-sm tracking-wide text-text-primary dark:text-white">VNDR</span>
+                <span className="text-slate-300 dark:text-slate-700 text-sm">/</span>
+                <span className="text-sm font-medium text-text-secondary dark:text-slate-400">
+                  {profile?.role === 'admin' ? 'Global' : (profile?.scope?.value === 'personal' ? 'Personal' : 'Enterprise')}
+                </span>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            {/* RIGHT: ACTIONS & USER */}
+            <div className="flex items-center gap-1">
+              
+              {/* Notifications */}
+              <button className="glass-button p-2.5 rounded-lg text-text-secondary hover:text-brand dark:hover:text-white relative transition-colors" title="Notifications">
+                <Bell className="w-4 h-4" />
+                {hasNotifications && (
+                  <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white dark:border-[#0A0A0C]" />
+                )}
+              </button>
+
+              {/* Support */}
+              <button className="glass-button p-2.5 rounded-lg text-text-secondary hover:text-brand dark:hover:text-white transition-colors" title="Support">
+                <CircleHelp className="w-4 h-4" />
+              </button>
+
+              <div className="h-4 w-[1px] bg-black/5 dark:bg-white/10 mx-2" />
+
               <button 
                 onClick={toggleTheme}
                 className="glass-button p-2.5 rounded-lg text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white"
@@ -226,7 +257,7 @@ function Dashboard() {
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
 
-              <div className="h-6 w-[1px] bg-black/10 dark:bg-white/10 mx-1" />
+              <div className="h-4 w-[1px] bg-black/5 dark:bg-white/10 mx-2" />
 
               <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer group">
                 <div className="text-right hidden sm:block">
@@ -277,18 +308,17 @@ function Dashboard() {
                 )}
 
                 {viewMode !== 'users' && (
-                  <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-6 shrink-0">
+                  <div className="flex flex-col xl:flex-row items-center justify-between gap-4 mb-6 shrink-0">
                     <div className="flex items-center gap-4 w-full xl:w-auto">
                       <div className="relative group flex-1 md:flex-none">
-                        <Search className="absolute left-3 top-3.5 w-4 h-4 text-text-secondary dark:text-slate-500 group-focus-within:text-brand dark:group-focus-within:text-blue-400 transition-colors" />
+                        <Search className="absolute left-3 top-3.5 w-4 h-4 text-text-secondary dark:text-slate-500" />
                         <input 
                           type="text"
                           placeholder="SEARCH DATABASE..."
-                          className="h-11 pl-10 pr-4 w-full md:w-[320px] bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-white/10 text-sm text-text-primary dark:text-white font-mono placeholder:text-slate-400/50 focus:outline-none focus:border-brand dark:focus:border-blue-400 transition-all rounded-t-sm"
+                          className="h-11 pl-10 pr-4 w-full md:w-[320px] bg-white/50 dark:bg-black/20 border border-black/5 dark:border-white/10 rounded-xl text-sm text-text-primary dark:text-white font-sans placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/20 transition-all shadow-sm"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
-                        <div className="absolute bottom-0 left-0 h-[1px] bg-brand dark:bg-blue-400 w-0 group-focus-within:w-full transition-all duration-300" />
                       </div>
                       
                       <MetricsHUD 
@@ -388,17 +418,20 @@ function Dashboard() {
                       <MasterGrid 
                         data={viewData} 
                         onRowClick={(prop) => setSelectedProperty(prop)} 
+                        isFiltered={isFiltered}
                       />
                     ) : layoutMode === 'matrix' ? (
                       <MatrixView
                         data={viewData}
                         onRowClick={(prop) => setSelectedProperty(prop)}
+                        isFiltered={isFiltered}
                       />
                     ) : (
                       <PortfolioTiles 
                         data={viewData}
                         onCardClick={(prop) => setSelectedProperty(prop)}
                         onAddProperty={() => setShowAddProperty(true)}
+                        isFiltered={isFiltered}
                       />
                     )
                   )}

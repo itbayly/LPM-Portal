@@ -1,6 +1,6 @@
 import { 
   Building2, Thermometer, ShieldCheck, Zap, Lock, 
-  ArrowUpRight 
+  ArrowUpRight, SearchX
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Property } from '../../dataModel';
@@ -8,6 +8,7 @@ import type { Property } from '../../dataModel';
 interface MatrixViewProps {
   data: Property[];
   onRowClick: (property: Property) => void;
+  isFiltered?: boolean;
 }
 
 // DEFINING THE COLUMNS
@@ -19,7 +20,7 @@ const COLUMNS = [
   { id: 'security', label: 'Access', icon: Lock },
 ];
 
-export default function MatrixView({ data, onRowClick }: MatrixViewProps) {
+export default function MatrixView({ data, onRowClick, isFiltered }: MatrixViewProps) {
   
   // --- HELPER: MOCK STATUS GENERATOR ---
   // In real app, this pulls from prop.contracts array
@@ -47,6 +48,21 @@ export default function MatrixView({ data, onRowClick }: MatrixViewProps) {
       default: return 'bg-slate-300 dark:bg-slate-700'; // Empty
     }
   };
+
+  if (data.length === 0) {
+    if (isFiltered) {
+      return (
+        <div className="w-full glass-panel rounded-xl overflow-hidden flex flex-col h-full animate-in fade-in zoom-in-95 duration-500 items-center justify-center">
+           <div className="flex flex-col items-center opacity-50">
+              <SearchX className="w-10 h-10 text-slate-400 mb-2" />
+              <p className="text-sm font-medium text-text-primary dark:text-white">No Matching Results</p>
+           </div>
+        </div>
+      );
+    }
+    // Zero state handled by parent if needed, or fallback here
+    return null; 
+  }
 
   return (
     <div className="w-full glass-panel rounded-xl overflow-hidden flex flex-col h-full animate-in fade-in zoom-in-95 duration-500">

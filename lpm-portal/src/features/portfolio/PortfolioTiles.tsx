@@ -1,4 +1,4 @@
-import { Building2, MapPin, AlertCircle, CheckCircle2, AlertTriangle, Plus } from 'lucide-react';
+import { Building2, MapPin, AlertCircle, CheckCircle2, AlertTriangle, Plus, SearchX } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { Property } from '../../dataModel';
 
@@ -6,9 +6,10 @@ interface PortfolioTilesProps {
   data: Property[];
   onCardClick: (property: Property) => void;
   onAddProperty: () => void;
+  isFiltered?: boolean;
 }
 
-export default function PortfolioTiles({ data, onCardClick, onAddProperty }: PortfolioTilesProps) {
+export default function PortfolioTiles({ data, onCardClick, onAddProperty, isFiltered }: PortfolioTilesProps) {
 
   // --- HELPER: DETERMINE DOT COLOR ---
   const getHealthStatus = (status: string) => {
@@ -38,13 +39,30 @@ export default function PortfolioTiles({ data, onCardClick, onAddProperty }: Por
     return { color: 'bg-emerald-500', shadow: 'shadow-emerald-500/50', icon: CheckCircle2, label: 'Operational' };
   };
 
-  // --- EMPTY STATE: HERO VIEW ---
+  // --- EMPTY STATES ---
   if (data.length === 0) {
+    // STATE 1: NO MATCHING RESULTS
+    if (isFiltered) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in zoom-in-95 duration-500">
+          <div className="glass-panel p-8 rounded-2xl text-center max-w-sm border border-white/20 dark:border-white/10 relative overflow-hidden">
+            <div className="w-16 h-16 bg-black/5 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+              <SearchX className="w-8 h-8 text-text-secondary dark:text-slate-500" />
+            </div>
+            <h3 className="text-lg font-bold text-text-primary dark:text-white mb-2">No Matching Results</h3>
+            <p className="text-sm text-text-secondary dark:text-slate-400">
+              We couldn't find any assets matching your search filters.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // STATE 2: EMPTY PORTFOLIO (Fallback)
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in zoom-in-95 duration-500">
         <div className="glass-panel p-12 rounded-2xl text-center max-w-lg border border-white/20 dark:border-white/10 shadow-2xl relative overflow-hidden group">
           
-          {/* Background Decoration */}
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand to-transparent opacity-50" />
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand/10 rounded-full blur-3xl pointer-events-none" />
 
