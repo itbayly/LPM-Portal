@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   X, UploadCloud, Keyboard, FileText, Calendar, DollarSign, 
-  CheckCircle2, Loader2, Sparkles, AlertTriangle
+  CheckCircle2, Loader2, Sparkles, AlertTriangle, Layers, ArrowLeft
 } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
@@ -16,7 +16,6 @@ export interface UIContract {
 }
 
 interface AddContractModalProps {
-  category: string;
   onClose: () => void;
   onSave: (contract: UIContract) => void;
 }
@@ -29,9 +28,24 @@ const MOCK_AI_DATA = {
   endDate: '2027-01-15'
 };
 
-export default function AddContractModal({ category, onClose, onSave }: AddContractModalProps) {
-  // Modes: selection -> manual OR upload -> scanning -> review
-  const [mode, setMode] = useState<'selection' | 'manual' | 'upload' | 'scanning' | 'review'>('selection');
+const CATEGORIES = [
+  "Vertical Transportation", 
+  "HVAC Systems", 
+  "Fire & Life Safety", 
+  "Utilities", 
+  "Access Control", 
+  "Landscaping", 
+  "Waste Mgmt", 
+  "Janitorial",
+  "Pest Control",
+  "Other"
+];
+
+export default function AddContractModal({ onClose, onSave }: AddContractModalProps) {
+  // Modes: category_selection -> selection -> manual OR upload -> scanning -> review
+  const [mode, setMode] = useState<'category_selection' | 'selection' | 'manual' | 'upload' | 'scanning' | 'review'>('category_selection');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
@@ -43,14 +57,18 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
     endDate: ''
   });
 
-  // Confidence State (for the Review Mode)
-  // true = High Confidence (Green), false = Low Confidence (Yellow)
+  // Confidence State
   const [confidence] = useState({
     vendor: true,
     cost: true,
-    startDate: false, // Simulate a "unsure" date
+    startDate: false,
     endDate: true
   });
+
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    setMode('selection');
+  };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +80,7 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
     setTimeout(() => {
       const newContract: UIContract = {
         id: `cnt_${Date.now()}`,
-        category: category,
+        category: selectedCategory,
         vendor: formData.vendor,
         status: 'active_contract',
         cost: Number(formData.cost),
@@ -79,9 +97,7 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
     setUploadedFile(file);
     setMode('scanning');
 
-    // Simulate AI Processing Time
     setTimeout(() => {
-      // Pre-fill form with Mock Data
       setFormData(MOCK_AI_DATA);
       setMode('review');
     }, 2500);
@@ -101,21 +117,49 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
         {/* Header */}
         <div className="p-6 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] flex justify-between items-center relative">
           <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-brand/50 to-transparent" />
-          <div>
-            <h2 className="text-sm font-bold font-mono text-text-primary dark:text-white uppercase tracking-widest flex items-center gap-2">
-              <FileText className="w-4 h-4 text-brand dark:text-blue-400" />
-              Add Contract: {category}
-            </h2>
-            <p className="text-xs text-text-secondary dark:text-slate-400 mt-1">Ingest new service agreement.</p>
+          <div className="flex items-center gap-3">
+            {mode !== 'category_selection' && (
+              <button 
+                onClick={() => setMode('category_selection')}
+                className="p-1 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-text-secondary dark:text-slate-400 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+            <div>
+              <h2 className="text-sm font-bold font-mono text-text-primary dark:text-white uppercase tracking-widest flex items-center gap-2">
+                <FileText className="w-4 h-4 text-brand dark:text-blue-400" />
+                {selectedCategory ? `New ${selectedCategory} Agreement` : 'New Agreement'}
+              </h2>
+              <p className="text-xs text-text-secondary dark:text-slate-400 mt-1">Ingest new service agreement.</p>
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* --- VIEW 0: CATEGORY SELECTION --- */}
+        {mode === 'category_selection' && (
+          <div className="p-6 animate-in slide-in-from-right-4">
+            <div className="grid grid-cols-2 gap-3">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => handleCategorySelect(cat)}
+                  className="p-3 rounded-lg border border-black/5 dark:border-white/5 bg-black/5 dark:bg-white/5 hover:bg-brand/5 dark:hover:bg-blue-400/10 hover:border-brand/30 dark:hover:border-blue-400/30 text-xs font-bold text-text-secondary dark:text-slate-300 hover:text-brand dark:hover:text-blue-400 transition-all text-left flex items-center gap-2"
+                >
+                  <Layers className="w-3.5 h-3.5 opacity-50" />
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* --- VIEW 1: SELECTION SCREEN --- */}
         {mode === 'selection' && (
-          <div className="p-8 grid grid-cols-2 gap-4">
+          <div className="p-8 grid grid-cols-2 gap-4 animate-in slide-in-from-right-8">
             <button 
               onClick={() => setMode('upload')}
               className="group relative p-6 rounded-xl border border-black/10 dark:border-white/10 hover:border-brand dark:hover:border-blue-400 bg-black/5 dark:bg-white/5 hover:bg-brand/5 dark:hover:bg-blue-400/5 transition-all flex flex-col items-center justify-center text-center gap-4"
@@ -179,14 +223,7 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
                 onChange={(e: any) => setFormData({...formData, endDate: e.target.value})} 
               />
             </div>
-            <div className="pt-4 flex justify-between">
-              <button 
-                type="button"
-                onClick={() => setMode('selection')}
-                className="text-xs font-bold text-text-secondary dark:text-slate-400 hover:text-text-primary dark:hover:text-white uppercase tracking-wider"
-              >
-                Back
-              </button>
+            <div className="pt-4 flex justify-end">
               <button 
                 type="submit"
                 disabled={isSubmitting}
@@ -231,10 +268,8 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
         {mode === 'scanning' && (
           <div className="p-12 text-center flex flex-col items-center animate-in fade-in duration-500">
             <div className="relative w-24 h-24 mb-6">
-              {/* Spinning Ring */}
               <div className="absolute inset-0 border-4 border-brand/20 dark:border-blue-400/20 rounded-full" />
               <div className="absolute inset-0 border-t-4 border-brand dark:border-blue-400 rounded-full animate-spin" />
-              {/* Icon in Center */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <Sparkles className="w-8 h-8 text-brand dark:text-blue-400 animate-pulse" />
               </div>
@@ -251,24 +286,6 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
         {/* --- VIEW 5: CONFIDENCE UI (REVIEW) --- */}
         {mode === 'review' && (
           <form onSubmit={handleManualSubmit} className="p-6 space-y-5 animate-in slide-in-from-right-8">
-            
-            {/* FILE BADGE */}
-            <div className="flex items-center gap-3 p-3 bg-brand/5 dark:bg-blue-500/10 border border-brand/20 dark:border-blue-500/20 rounded-lg mb-6">
-              <div className="p-2 bg-white dark:bg-white/10 rounded text-brand dark:text-blue-400">
-                <FileText className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-text-primary dark:text-white truncate">
-                  {uploadedFile?.name || "contract_scan.pdf"}
-                </p>
-                <p className="text-[10px] text-text-secondary dark:text-slate-400">Processed by Gemini Pro</p>
-              </div>
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded">
-                <CheckCircle2 className="w-3 h-3" />
-                COMPLETE
-              </div>
-            </div>
-
             <InputSlot 
               label="Vendor Name" 
               value={formData.vendor} 
@@ -276,7 +293,6 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
               isAiFilled={true}
               isLowConfidence={!confidence.vendor}
             />
-
             <InputSlot 
               label="Monthly Cost" 
               icon={DollarSign}
@@ -286,7 +302,6 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
               isAiFilled={true}
               isLowConfidence={!confidence.cost}
             />
-
             <div className="grid grid-cols-2 gap-4">
               <InputSlot 
                 label="Start Date" 
@@ -295,7 +310,7 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
                 value={formData.startDate} 
                 onChange={(e: any) => setFormData({...formData, startDate: e.target.value})}
                 isAiFilled={true}
-                isLowConfidence={!confidence.startDate} // This one will be Yellow
+                isLowConfidence={!confidence.startDate}
               />
               <InputSlot 
                 label="End Date" 
@@ -307,11 +322,7 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
                 isLowConfidence={!confidence.endDate}
               />
             </div>
-
-            <div className="pt-4 flex justify-between items-center border-t border-black/5 dark:border-white/5 mt-6">
-              <span className="text-[10px] text-text-secondary dark:text-slate-500 italic">
-                * Please verify highlighted fields
-              </span>
+            <div className="pt-4 flex justify-end">
               <button 
                 type="submit"
                 disabled={isSubmitting}
@@ -328,7 +339,7 @@ export default function AddContractModal({ category, onClose, onSave }: AddContr
   );
 }
 
-// --- HELPER COMPONENT (Moved Outside) ---
+// --- HELPER COMPONENT ---
 const InputSlot = ({ 
   label, value, onChange, placeholder, icon: Icon, type = "text", 
   isAiFilled = false, isLowConfidence = false 

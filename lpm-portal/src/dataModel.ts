@@ -62,10 +62,10 @@ export interface Contract {
   startDate?: string;
   endDate?: string;
   billingFrequency?: 'Monthly' | 'Quarterly' | 'Semi-Annual' | 'Annual';
+  rating?: number; // <--- ADDED
   documents?: PropertyDocument[];
 }
 
-// RENAMED FROM Property
 export interface Property {
   id: string;
   name: string;

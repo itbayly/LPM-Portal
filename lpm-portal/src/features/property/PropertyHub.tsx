@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { 
   Building2, MapPin, Plus, ArrowLeft, 
-  ArrowRight, ShieldCheck, Thermometer, Zap, Lock 
+  ArrowRight, ShieldCheck, Thermometer, Zap, Lock, FileText, Calendar 
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StatusPill } from '../../components/ui/StatusPill';
+import { StarRating } from '../../components/ui/StarRating';
 import type { Property, Contract } from '../../dataModel';
 
 // Reuse the Wallet View for the specific contract details
@@ -28,18 +29,45 @@ interface ServiceCard {
   cost: number;
   icon: any;
   active: boolean;
-  isLegacyElevator?: boolean; // To track the original elevator data
+  rating: number;
+  expirationDate?: string;
+  isLegacyElevator?: boolean; 
 }
+
+// --- HELPER: Category Color Mapping ---
+const getCategoryColor = (category: string) => {
+  const c = category.toLowerCase();
+  if (c.includes('vertical') || c.includes('elevator')) return 'border-l-blue-500';
+  if (c.includes('fire') || c.includes('life safety')) return 'border-l-orange-500';
+  if (c.includes('hvac') || c.includes('cooling')) return 'border-l-cyan-500';
+  if (c.includes('waste')) return 'border-l-emerald-500';
+  if (c.includes('security') || c.includes('access')) return 'border-l-indigo-500';
+  if (c.includes('utilities') || c.includes('elec')) return 'border-l-yellow-500';
+  return 'border-l-slate-500';
+};
+
+// --- HELPER: Date Formatter ---
+const formatExpiry = (dateStr?: string) => {
+  if (!dateStr) return "Auto-Renew";
+  return `${dateStr}`; 
+};
+
+// --- HELPER: Monogram Logic ---
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 
 export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubProps) {
   // Navigation State
   const [activeService, setActiveService] = useState<string | null>(null);
   
   // Modal State
-  const [showAddContract, setShowAddContract] = useState<{isOpen: boolean, category: string}>({
-    isOpen: false,
-    category: ''
-  });
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const [services, setServices] = useState<ServiceCard[]>([]);
 
@@ -54,18 +82,12 @@ export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubP
       cost: property.vendor?.currentPrice || 0,
       icon: Building2,
       active: !!property.vendor?.name,
+      rating: property.vendor?.rating || 0,
+      expirationDate: property.contractEndDate,
       isLegacyElevator: true
     };
 
-    // B. Define the Ghost Slots
-    const ghosts: ServiceCard[] = [
-      { id: 'hvac', category: 'HVAC Systems', vendor: null, status: null, cost: 0, icon: Thermometer, active: false },
-      { id: 'fire', category: 'Fire & Life Safety', vendor: null, status: null, cost: 0, icon: ShieldCheck, active: false },
-      { id: 'elec', category: 'Utilities', vendor: null, status: null, cost: 0, icon: Zap, active: false },
-      { id: 'security', category: 'Access Control', vendor: null, status: null, cost: 0, icon: Lock, active: false },
-    ];
-
-    // C. Merge with Real Contracts from DB
+    // B. Merge with Real Contracts from DB
     const dbContracts = property.contracts || [];
     
     // Map DB contracts to cards
@@ -83,31 +105,20 @@ export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubP
         status: c.status,
         cost: c.cost,
         icon: icon,
-        active: true
+        active: true,
+        rating: c.rating || 0,
+        expirationDate: c.endDate
       };
     });
 
-    // Filter out ghosts that now have real contracts
-    const activeGhostIds = mappedContracts.map(c => {
-       if (c.category.includes('HVAC')) return 'hvac';
-       if (c.category.includes('Fire')) return 'fire';
-       if (c.category.includes('Access')) return 'security';
-       return '';
-    }) as string[];
-
-    const finalGhosts = ghosts.filter(g => !activeGhostIds.includes(g.id));
-
-    setServices([elevatorCard, ...mappedContracts, ...finalGhosts]);
+    // Only show active contracts (or the legacy one if active)
+    const allServices = [elevatorCard, ...mappedContracts].filter(s => s.active);
+    setServices(allServices);
 
   }, [property]);
 
   // Calculate Total Spend
   const totalSpend = services.reduce((acc, curr) => acc + (curr.cost || 0), 0);
-
-  // --- HANDLER: OPEN MODAL ---
-  const handleGhostClick = (category: string) => {
-    setShowAddContract({ isOpen: true, category });
-  };
 
   // --- HANDLER: SAVE CONTRACT (PERSIST TO DB) ---
   const handleContractSaved = (uiContract: UIContract) => {
@@ -119,7 +130,8 @@ export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubP
       status: 'active_contract', // Default status
       cost: uiContract.cost,
       startDate: uiContract.startDate,
-      endDate: uiContract.endDate
+      endDate: uiContract.endDate,
+      rating: 0 // Default rating
     };
 
     // 2. Merge with existing contracts
@@ -130,7 +142,7 @@ export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubP
     onUpdate(property.id, { contracts: updatedContracts });
     
     // 4. Close Modal
-    setShowAddContract({ isOpen: false, category: '' });
+    setShowAddModal(false);
   };
 
   // --- RENDER: CONTRACT WALLET ---
@@ -150,18 +162,17 @@ export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubP
       
       {/* HEADER */}
       <div className="glass-panel p-6 rounded-xl mb-6 shrink-0 relative overflow-hidden group">
+        {/* BACK BUTTON: Aligned Left with Navbar Logo */}
         <button 
           onClick={onBack} 
-          className="absolute top-6 right-6 p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-text-secondary dark:text-slate-400 transition-colors z-20"
+          className="absolute top-6 left-6 p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-text-secondary dark:text-slate-400 transition-colors z-20"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <div className="flex flex-col md:flex-row gap-6 relative z-10">
-          <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center shadow-inner border border-white/50 dark:border-white/10">
-            <Building2 className="w-8 h-8 text-slate-500 dark:text-slate-400" />
-          </div>
-
+        <div className="flex flex-col md:flex-row gap-6 relative z-10 pl-12">
+          
+          {/* TEXT CONTAINER (Now first, with padding to clear absolute button) */}
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-text-primary dark:text-white tracking-tight mb-2">
               {property.name}
@@ -190,78 +201,107 @@ export default function PropertyHub({ property, onBack, onUpdate }: PropertyHubP
       {/* SERVICE STACK */}
       <div className="flex-1 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold font-mono text-text-secondary dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            <Zap className="w-4 h-4" /> Active Service Stack
+          <h2 className="text-sm font-bold font-sans tracking-tight text-text-secondary dark:text-slate-400 uppercase flex items-center gap-2">
+            <FileText className="w-4 h-4" /> Service Agreements
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-10">
-          {services.map((service) => {
-            const Icon = service.icon;
-            
-            if (service.active) {
+        {/* SCENARIO B: EMPTY STATE */}
+        {services.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[400px] border-2 border-dashed border-black/5 dark:border-white/5 rounded-xl bg-black/[0.01] dark:bg-white/[0.01]">
+            <div className="w-16 h-16 bg-brand/10 dark:bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
+              <ShieldCheck className="w-8 h-8 text-brand dark:text-blue-400" />
+            </div>
+            <h3 className="text-lg font-bold text-text-primary dark:text-white mb-2">No Contracts Found</h3>
+            <p className="text-sm text-text-secondary dark:text-slate-400 mb-6 max-w-xs text-center">
+              Set up your first service agreement to begin tracking expenses and renewal dates.
+            </p>
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="px-6 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-lg text-sm font-bold shadow-lg shadow-brand/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add Contract
+            </button>
+          </div>
+        ) : (
+          /* SCENARIO A: LIST VIEW - TIGHTER GRID */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-fr pb-10">
+            {services.map((service) => {
+              const Icon = service.icon;
               return (
                 <div 
                   key={service.id}
                   onClick={() => service.isLegacyElevator ? setActiveService('elevator') : null}
                   className={cn(
-                    "glass-panel p-5 rounded-xl transition-all duration-300 group relative overflow-hidden border-l-4 border-l-brand dark:border-l-blue-500",
+                    "glass-panel p-5 rounded-xl transition-all duration-300 group relative overflow-hidden border-l-4 min-h-[200px] h-full flex flex-col",
+                    getCategoryColor(service.category),
                     service.isLegacyElevator ? "cursor-pointer hover:scale-[1.02] active:scale-[0.98]" : "cursor-default"
                   )}
                 >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="p-2 bg-brand/10 dark:bg-blue-500/10 rounded-lg text-brand dark:text-blue-400">
-                      <Icon className="w-5 h-5" />
-                    </div>
+                  {/* Status Pill Absolute */}
+                  <div className="absolute top-4 right-4">
                     {service.status && <StatusPill status={service.status as any} />}
                   </div>
 
-                  <h3 className="text-lg font-bold text-text-primary dark:text-white mb-1">
-                    {service.category}
-                  </h3>
-                  <p className="text-sm text-text-secondary dark:text-slate-400 mb-4 font-medium">
-                    {service.vendor}
-                  </p>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-black/5 dark:border-white/5">
-                    <span className="text-xs font-mono text-text-secondary dark:text-slate-500 uppercase">Monthly</span>
-                    <span className="font-mono font-bold text-text-primary dark:text-white">
-                      ${service.cost.toLocaleString()}
+                  {/* Header: Category */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-bold text-text-secondary dark:text-slate-500 uppercase tracking-wide">
+                      {service.category}
                     </span>
                   </div>
 
+                  {/* Body: Vendor & Rating */}
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 truncate pr-16">
+                      {service.vendor}
+                    </h3>
+                    <div className="pointer-events-none origin-left scale-90">
+                      <StarRating value={service.rating} readonly />
+                    </div>
+                  </div>
+
+                  {/* Footer: Date & Price */}
+                  <div className="flex items-end justify-between pt-4 border-t border-black/5 dark:border-white/5 mt-auto">
+                    <div className="flex items-center gap-2 text-text-secondary dark:text-slate-400">
+                      <Calendar className="w-4 h-4 opacity-70" />
+                      <span className="text-xs font-mono font-medium">
+                        {formatExpiry(service.expirationDate)}
+                      </span>
+                    </div>
+                    
+                    <div className="text-xl font-mono font-bold text-slate-900 dark:text-white tracking-tight">
+                      ${service.cost.toLocaleString()}
+                    </div>
+                  </div>
+
                   {service.isLegacyElevator && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300">
+                    <div className="absolute right-4 bottom-16 opacity-0 group-hover:opacity-100 transition-all duration-300">
                       <ArrowRight className="w-5 h-5 text-brand dark:text-blue-400" />
                     </div>
                   )}
                 </div>
               );
-            } else {
-              return (
-                <div 
-                  key={service.id}
-                  onClick={() => handleGhostClick(service.category)}
-                  className="border-2 border-dashed border-black/5 dark:border-white/5 rounded-xl p-5 flex flex-col items-center justify-center text-center hover:border-brand/30 dark:hover:border-blue-400/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer group opacity-60 hover:opacity-100 min-h-[180px]"
-                >
-                  <div className="p-3 bg-black/5 dark:bg-white/5 rounded-full text-slate-400 group-hover:text-brand dark:group-hover:text-blue-400 mb-3 transition-colors">
-                    <Plus className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-sm font-bold text-text-secondary dark:text-slate-400 group-hover:text-text-primary dark:group-hover:text-white transition-colors">
-                    Add {service.category}
-                  </h3>
-                  <p className="text-[10px] text-slate-400 mt-1">No active contract found</p>
-                </div>
-              );
-            }
-          })}
-        </div>
+            })}
+
+            {/* "Add Contract" Button at the end of the list */}
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="border-2 border-dashed border-black/5 dark:border-white/5 rounded-xl p-5 flex flex-col items-center justify-center text-center hover:border-brand/30 dark:hover:border-blue-400/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer group min-h-[200px] h-full"
+            >
+              <div className="p-3 bg-black/5 dark:bg-white/5 rounded-full text-slate-400 group-hover:text-brand dark:group-hover:text-blue-400 mb-3 transition-colors group-hover:scale-110">
+                <Plus className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-text-secondary dark:text-slate-400 group-hover:text-text-primary dark:group-hover:text-white transition-colors uppercase tracking-wider">
+                Add New Contract
+              </h3>
+            </button>
+          </div>
+        )}
       </div>
 
-      {showAddContract.isOpen && (
+      {showAddModal && (
         <AddContractModal 
-          category={showAddContract.category}
-          onClose={() => setShowAddContract({ isOpen: false, category: '' })}
+          onClose={() => setShowAddModal(false)}
           onSave={handleContractSaved}
         />
       )}

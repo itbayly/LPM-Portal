@@ -51,7 +51,7 @@ export function StatusPill({ status, className }: StatusPillProps) {
   return (
     <span 
       className={cn(
-        "px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider border whitespace-nowrap backdrop-blur-sm",
+        "px-2.5 py-0.5 rounded-md text-[10px] font-sans font-bold tracking-tight uppercase border whitespace-nowrap backdrop-blur-sm",
         config.style,
         className
       )}

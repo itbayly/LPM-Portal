@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { VndrLogo } from '../../../components/ui/VndrLogo';
 
 interface NavbarProps {
   isDark: boolean;
   toggleTheme: () => void;
-  onLoginClick: () => void; // <--- Added prop
+  onLoginClick: () => void; 
 }
 
 const Navbar: React.FC<NavbarProps> = ({ isDark, toggleTheme, onLoginClick }) => {
@@ -17,9 +18,7 @@ const Navbar: React.FC<NavbarProps> = ({ isDark, toggleTheme, onLoginClick }) =>
     >
       <div className="glass-panel rounded-full px-6 py-3 flex items-center justify-between w-full max-w-5xl border border-transparent dark:border-white/10 bg-white/70 dark:bg-black/50 backdrop-blur-md shadow-lvl1">
         <div className="flex items-center">
-          <span className="font-bold tracking-[0.2em] text-lg text-primary-light dark:text-primary-dark">
-            VNDR
-          </span>
+          <VndrLogo className="h-6 w-auto text-primary-light dark:text-white hover:opacity-80 transition-opacity" />
         </div>
         <div className="flex items-center gap-6">
           <button 

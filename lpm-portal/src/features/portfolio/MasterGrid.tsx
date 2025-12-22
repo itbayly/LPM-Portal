@@ -10,7 +10,8 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
-  SearchX
+  SearchX,
+  Layers
 } from 'lucide-react';
 import type { Property } from '../../dataModel';
 import { cn } from '../../lib/utils';
@@ -29,7 +30,6 @@ type SortState = {
   direction: 'asc' | 'desc';
 };
 
-// ... (Rest of constants/helpers remain same) ...
 const STATUS_LABELS: Record<string, string> = {
   'active': 'Active',
   'active_contract': 'Active Contract',
@@ -72,6 +72,15 @@ const formatValue = (key: string, value: string) => {
   return value;
 };
 
+// --- LENS HELPERS ---
+const LENS_OPTIONS = [
+  { value: 'summary', label: 'Portfolio Summary' },
+  { value: 'elevator', label: 'Elevator / Vertical' },
+  { value: 'hvac', label: 'HVAC Systems' },
+  { value: 'fire', label: 'Fire & Life Safety' },
+  { value: 'waste', label: 'Waste Management' },
+];
+
 export default function MasterGrid({ onRowClick, data = [], isFiltered }: MasterGridProps) {
   // State
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,18 +88,23 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
   const [sortConfig, setSortConfig] = useState<SortState | null>(null);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [openMenuColumn, setOpenMenuColumn] = useState<string | null>(null);
+  
+  // --- LENS STATE ---
+  const [contractType, setContractType] = useState('summary');
 
   // --- FILTERING ---
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      if (item.status === 'no_elevators') return false; 
+      // Allow 'no_elevators' to show in summary/other views if needed, but keeping existing logic for now
+      if (contractType === 'elevator' && item.status === 'no_elevators') return false; 
+      
       return Object.entries(activeFilters).every(([key, selectedValues]) => {
         if (selectedValues.length === 0) return true;
         const itemValue = String(getValue(item, key));
         return selectedValues.includes(itemValue);
       });
     });
-  }, [data, activeFilters]);
+  }, [data, activeFilters, contractType]);
 
   // --- SORTING ---
   const sortedData = useMemo(() => {
@@ -126,8 +140,50 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
     setCurrentPage(1);
   };
 
-  // ... (HeaderMenu and HeaderCell components remain same) ...
-  // --- SUB-COMPONENT: HEADER MENU (Glassmorphic) ---
+  // --- DATA MAPPING HELPER ---
+  const getLensData = (prop: Property) => {
+    // 1. SUMMARY VIEW
+    if (contractType === 'summary') {
+      const elevatorCost = prop.vendor?.currentPrice || 0;
+      // Sum secondary contracts
+      const otherCost = (prop.contracts || []).reduce((acc, c) => acc + (c.cost || 0), 0);
+      
+      return {
+        vendorName: prop.contracts?.length ? `${(prop.contracts.length + (prop.vendor?.name ? 1 : 0))} Active Vendors` : (prop.vendor?.name || '-'),
+        price: elevatorCost + otherCost,
+        rating: null, // Hide rating in summary
+        endDate: prop.contractEndDate, // Primary date
+        status: prop.status,
+        units: null // Hide units
+      };
+    }
+
+    // 2. ELEVATOR VIEW (Default Legacy)
+    if (contractType === 'elevator') {
+      return {
+        vendorName: prop.vendor?.name,
+        price: prop.vendor?.currentPrice,
+        rating: prop.vendor?.rating,
+        endDate: prop.contractEndDate,
+        status: prop.status,
+        units: prop.unitCount
+      };
+    }
+
+    // 3. SPECIFIC TRADES
+    const tradeContract = prop.contracts?.find(c => c.category.toLowerCase().includes(contractType));
+    
+    return {
+      vendorName: tradeContract?.vendor || '-',
+      price: tradeContract?.cost || 0,
+      rating: null,
+      endDate: tradeContract?.endDate || '-',
+      status: tradeContract?.status || 'missing_data',
+      units: null
+    };
+  };
+
+  // --- SUB-COMPONENTS ---
   const HeaderMenu = ({ columnKey, options }: { columnKey: string, options: string[] }) => {
     const initialSelection = activeFilters[columnKey] || options;
     const [selected, setSelected] = useState<string[]>(initialSelection);
@@ -159,7 +215,6 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
         className="absolute top-full left-0 mt-2 w-64 bg-white/90 dark:bg-[#0A0A0C]/95 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-lg shadow-2xl z-50 text-sm flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden ring-1 ring-black/5 dark:ring-white/5"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search Slot */}
         <div className="p-3 border-b border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]">
           <div className="relative bg-black/5 dark:bg-white/5 rounded-sm group overflow-hidden">
             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-text-secondary dark:text-slate-500" />
@@ -173,7 +228,6 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
               onBlur={() => setIsSearchFocused(false)}
               autoFocus
             />
-            {/* Animated Bottom Line */}
             <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-transparent">
               <motion.div 
                 initial={{ width: "0%" }}
@@ -184,7 +238,6 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
           </div>
         </div>
 
-        {/* Sort Actions */}
         <div className="p-1 grid grid-cols-2 gap-1 border-b border-black/5 dark:border-white/5">
           <button 
             onClick={() => handleSort(columnKey as SortKey, 'asc')}
@@ -202,7 +255,6 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
           </button>
         </div>
 
-        {/* Options List */}
         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
           <label className="flex items-center gap-3 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer rounded-sm group transition-colors">
             <div className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${isAllSelected ? 'bg-brand border-brand dark:bg-cyan-500 dark:border-cyan-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand dark:group-hover:border-cyan-400'}`}>
@@ -226,7 +278,6 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
           })}
         </div>
 
-        {/* Footer */}
         <div className="p-2 border-t border-black/5 dark:border-white/5 flex justify-between bg-black/[0.02] dark:bg-white/[0.02]">
           <button 
             onClick={() => applyFilter(columnKey, null)} 
@@ -245,7 +296,6 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
     );
   };
 
-  // --- SUB-COMPONENT: HEADER CELL ---
   const HeaderCell = ({ label, columnKey, width }: { label: string, columnKey: string, width?: string }) => {
     const isSorted = sortConfig?.key === columnKey;
     const isFiltered = activeFilters[columnKey] !== undefined;
@@ -317,9 +367,39 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
   };
 
   return (
-    // GLASS PANEL CONTAINER
     <div className="w-full glass-panel rounded-xl overflow-hidden flex flex-col h-full transition-all duration-500">
       
+      {/* --- GRID HEADER W/ LENS SWITCHER --- */}
+      <div className="p-3 border-b border-black/5 dark:border-white/5 flex items-center gap-4 bg-white/30 dark:bg-black/20">
+        
+        {/* LENS SELECTOR */}
+        <div className="relative group">
+          <div className="absolute left-3 top-2.5 text-text-secondary dark:text-slate-500 pointer-events-none">
+            <Layers className="w-4 h-4" />
+          </div>
+          <select
+            value={contractType}
+            onChange={(e) => setContractType(e.target.value)}
+            className="h-9 pl-9 pr-8 bg-white/50 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-lg text-xs font-bold text-text-primary dark:text-white uppercase tracking-wide outline-none focus:border-brand dark:focus:border-blue-400 appearance-none cursor-pointer hover:bg-white dark:hover:bg-white/10 transition-colors"
+          >
+            {LENS_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value} className="text-black bg-white">
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-2 top-2.5 pointer-events-none text-text-secondary dark:text-slate-500">
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Dynamic Label */}
+        <div className="h-4 w-[1px] bg-black/10 dark:bg-white/10" />
+        <span className="text-[10px] font-mono text-text-secondary dark:text-slate-500 uppercase tracking-widest">
+          Viewing: {LENS_OPTIONS.find(o => o.value === contractType)?.label}
+        </span>
+      </div>
+
       {/* GRID BODY */}
       <div className="overflow-auto flex-1 relative min-h-[400px] scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/10 dark:scrollbar-thumb-white/10">
         <table className="w-full text-left border-collapse">
@@ -331,10 +411,17 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
               <HeaderCell label="City" columnKey="city" />
               <HeaderCell label="State" columnKey="state" />
               <HeaderCell label="Zip" columnKey="zip" />
-              <HeaderCell label="Units" columnKey="unitCount" />
+              
+              {/* DYNAMIC COLUMNS */}
+              {contractType === 'elevator' && <HeaderCell label="Units" columnKey="unitCount" />}
               <HeaderCell label="Vendor" columnKey="vendor.name" />
-              <HeaderCell label="Rating" columnKey="vendor.rating" width="w-[120px]" />
-              <HeaderCell label="Price/Mo" columnKey="vendor.currentPrice" />
+              {contractType === 'elevator' && <HeaderCell label="Rating" columnKey="vendor.rating" width="w-[120px]" />}
+              
+              <HeaderCell 
+                label={contractType === 'summary' ? "Total Monthly" : "Price/Mo"} 
+                columnKey="vendor.currentPrice" 
+              />
+              
               <HeaderCell label="End Date" columnKey="contractEndDate" />
               <HeaderCell label="Notice" columnKey="cancellationWindow" />
             </tr>
@@ -353,26 +440,55 @@ export default function MasterGrid({ onRowClick, data = [], isFiltered }: Master
                 </td>
               </tr>
             ) : (
-              currentData.map((prop) => (
-                <tr 
-                  key={prop.id} 
-                  onClick={() => onRowClick(prop)} 
-                  className="group cursor-pointer hover:bg-brand/5 dark:hover:bg-brand/10 transition-colors duration-200"
-                >
-                  <td className="py-3 px-4"><StatusPill status={prop.status} /></td>
-                  <td className="py-3 px-4 text-xs font-bold text-text-primary dark:text-white group-hover:text-brand dark:group-hover:text-cyan-400 transition-colors">{prop.name}</td>
-                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.address}</td>
-                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.city}</td>
-                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.state}</td>
-                  <td className="py-3 px-4 text-xs font-mono text-text-secondary dark:text-slate-500 opacity-70">{prop.zip}</td>
-                  <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-sm">{prop.unitCount}</td>
-                  <td className="py-3 px-4 text-xs font-medium text-text-primary dark:text-slate-200">{prop.vendor.name}</td>
-                  <td className="py-3 px-4"><div className="pointer-events-none scale-75 origin-left"><StarRating value={prop.vendor.rating || 0} readonly /></div></td>
-                  <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-white text-right tracking-tight">${(prop.vendor.currentPrice || 0).toLocaleString()}</td>
-                  <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-right opacity-90">{prop.contractEndDate}</td>
-                  <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400 truncate max-w-[120px]">{prop.cancellationWindow}</td>
-                </tr>
-              ))
+              currentData.map((prop) => {
+                const lensData = getLensData(prop);
+                
+                return (
+                  <tr 
+                    key={prop.id} 
+                    onClick={() => onRowClick(prop)} 
+                    className="group cursor-pointer hover:bg-brand/5 dark:hover:bg-brand/10 transition-colors duration-200"
+                  >
+                    <td className="py-3 px-4"><StatusPill status={lensData.status as any} /></td>
+                    <td className="py-3 px-4 text-xs font-bold text-text-primary dark:text-white group-hover:text-brand dark:group-hover:text-cyan-400 transition-colors">{prop.name}</td>
+                    <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.address}</td>
+                    <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.city}</td>
+                    <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400">{prop.state}</td>
+                    <td className="py-3 px-4 text-xs font-mono text-text-secondary dark:text-slate-500 opacity-70">{prop.zip}</td>
+                    
+                    {/* DYNAMIC CELLS */}
+                    {contractType === 'elevator' && (
+                      <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-center bg-black/[0.02] dark:bg-white/[0.02] rounded-sm">
+                        {lensData.units ?? '-'}
+                      </td>
+                    )}
+                    
+                    <td className="py-3 px-4 text-xs font-medium text-text-primary dark:text-slate-200">
+                      {lensData.vendorName}
+                    </td>
+                    
+                    {contractType === 'elevator' && (
+                      <td className="py-3 px-4">
+                        <div className="pointer-events-none scale-75 origin-left">
+                          <StarRating value={lensData.rating || 0} readonly />
+                        </div>
+                      </td>
+                    )}
+                    
+                    <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-white text-right tracking-tight">
+                      ${(lensData.price || 0).toLocaleString()}
+                    </td>
+                    
+                    <td className="py-3 px-4 text-xs font-mono text-text-primary dark:text-slate-300 text-right opacity-90">
+                      {lensData.endDate || '-'}
+                    </td>
+                    
+                    <td className="py-3 px-4 text-xs text-text-secondary dark:text-slate-400 truncate max-w-[120px]">
+                      {prop.cancellationWindow}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

@@ -14,9 +14,10 @@ import UserManagement from './features/admin/UserManagement';
 import AddPropertyModal from './features/property/components/AddPropertyModal';
 import OnboardingWizard from './features/onboarding/OnboardingWizard';
 import NoiseOverlay from './features/landing/components/NoiseOverlay';
+import { VndrLogo } from './components/ui/VndrLogo';
 
 import { 
-  Layers, LogOut, Upload, Search, PieChart, Users, AlertTriangle,
+  LogOut, Upload, Search, PieChart, Users, AlertTriangle,
   Sun, Moon, LayoutGrid, Table as TableIcon, Grip, Bell, CircleHelp
 } from 'lucide-react';
 import { useProperties } from './hooks/useProperties';
@@ -217,18 +218,18 @@ function Dashboard() {
         <>
           <nav className="h-16 px-6 shrink-0 z-50 flex items-center justify-between mt-4 mx-4 rounded-xl glass-panel relative">
             
-            {/* LEFT: IDENTITY (BREADCRUMB) */}
-            <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setSelectedProperty(null)}>
-              <div className="p-2 bg-brand/5 dark:bg-white/5 rounded-lg transition-colors group-hover:bg-brand/10 dark:group-hover:bg-white/10">
-                 <Layers className="w-5 h-5 text-brand dark:text-blue-400" />
-              </div>
-              <div className="flex items-center gap-3 font-sans">
-                <span className="font-bold text-sm tracking-wide text-text-primary dark:text-white">VNDR</span>
-                <span className="text-slate-300 dark:text-slate-700 text-sm">/</span>
-                <span className="text-sm font-medium text-text-secondary dark:text-slate-400">
-                  {profile?.role === 'admin' ? 'Global' : (profile?.scope?.value === 'personal' ? 'Personal' : 'Enterprise')}
-                </span>
-              </div>
+            {/* LEFT: BRANDING IDENTITY */}
+            <div className="flex items-center gap-4 ml-2 cursor-pointer group" onClick={() => setSelectedProperty(null)}>
+              {/* Brand Mark */}
+              <VndrLogo className="h-6 w-auto text-[#0F172A] dark:text-white transition-colors duration-500" />
+
+              {/* Divider */}
+              <div className="h-5 w-[1px] bg-slate-300 dark:bg-slate-700 rotate-12" />
+
+              {/* Context Label */}
+              <span className="text-xs font-semibold text-text-secondary dark:text-slate-400 uppercase tracking-widest">
+                {profile?.role === 'admin' ? 'Global' : (profile?.scope?.value === 'personal' ? 'Personal' : 'Enterprise')}
+              </span>
             </div>
             
             {/* RIGHT: ACTIONS & USER */}

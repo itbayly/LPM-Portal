@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { AlertCircle, Sun, Moon, Mail, Lock } from 'lucide-react'; 
 import NoiseOverlay from '../landing/components/NoiseOverlay';
+import { VndrLogo } from '../../components/ui/VndrLogo';
 
 // --- TYPES & HELPERS ---
 type AuthMode = 'signin' | 'signup' | 'invite';
@@ -193,11 +194,14 @@ export default function LoginPage() {
             
             {/* A. HEADER */}
             <div className="text-center mb-8">
+              <div className="flex justify-center mb-6">
+                <VndrLogo className="h-10 w-auto text-[#0F172A] dark:text-white" />
+              </div>
               <h1 className="font-sans font-semibold text-xl tracking-tight transition-colors text-slate-900 dark:text-white">
-                {isInvite ? 'Activate Account' : 'Welcome to VNDR'}
+                {isInvite ? 'Activate Account' : 'Welcome back'}
               </h1>
               <p className="text-sm mt-2 transition-colors text-slate-500 dark:text-slate-400">
-                Your portfolio command center is ready.
+                Your Contracts, Under Control.
               </p>
             </div>
 
